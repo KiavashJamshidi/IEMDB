@@ -8,9 +8,9 @@ import java.sql.Statement;
 
 public class ConnectionPool {
     private static final BasicDataSource ds = new BasicDataSource();
-    private final static String dbURL = "jdbc:mysql://127.0.0.1:3306/BolbolestanDB";
-    private final static String dbUserName = "bolbol";
-    private final static String dbPassword = "veganShibaInu";
+    private final static String dbURL = "jdbc:mysql://127.0.0.1:3306/iemdb";
+    private final static String dbUserName = "root";
+    private final static String dbPassword = "";
 
     static {
         try {
@@ -35,7 +35,7 @@ public class ConnectionPool {
         try {
             Connection connection = getConnection();
             Statement statement = connection.createStatement();
-            statement.execute("ALTER DATABASE BolbolestanDB CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;");
+            statement.execute("ALTER DATABASE iemdb CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;");
             connection.close();
             statement.close();
         }
@@ -45,4 +45,3 @@ public class ConnectionPool {
         }
     }
 }
-
