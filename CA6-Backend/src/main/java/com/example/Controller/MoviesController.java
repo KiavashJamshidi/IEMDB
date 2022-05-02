@@ -1,6 +1,6 @@
 package com.example.Controller;
 
-import com.example.Exceptons.MovieNotFound;
+import com.example.Exceptions.MovieNotFound;
 import com.example.Model.IEMDB;
 import com.example.Model.Movie;
 import com.fasterxml.jackson.databind.JsonNode;

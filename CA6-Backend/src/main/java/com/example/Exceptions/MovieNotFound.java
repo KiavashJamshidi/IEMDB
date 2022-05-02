@@ -1,4 +1,4 @@
-package com.example.Exceptons;
+package com.example.Exceptions;
 
 public class MovieNotFound extends Exception {
     public MovieNotFound() {

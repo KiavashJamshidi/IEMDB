@@ -1,12 +1,10 @@
-package com.marshmellow.bolbolestan.repository;
+package com.example.Repository;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.marshmellow.bolbolestan.Exception.OfferingNotFound;
-import com.marshmellow.bolbolestan.Exception.StudentNotFound;
-import com.marshmellow.bolbolestan.model.Grade;
-import com.marshmellow.bolbolestan.model.Offering;
-import com.marshmellow.bolbolestan.model.Student;
+import com.example.Exceptions.MovieNotFound;
+import com.example.Exceptions.ActorNotFound;
+import com.example.Model.*;
 import org.apache.commons.dbutils.DbUtils;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
@@ -18,12 +16,12 @@ import java.net.http.HttpResponse;
 import java.sql.*;
 import java.util.*;
 
-public class StudentRepository {
-    private static final String TABLE_NAME = "Student";
-    private static StudentRepository instance;
+public class IemdbRepository {
+    private static final String TABLE_NAME = "Movie" + "";
+    private static IemdbRepository instance;
 
-    private static final String API_STUDENTS = "http://138.197.181.131:5200/api/students";
-    private static final String API_GRADE = "http://138.197.181.131:5200/api/grades/";
+    private static final String API_MOVIES = "http://138.197.181.131:5200/api/students";
+    private static final String API_ACTORS = "http://138.197.181.131:5200/api/grades/";
 
     private static final String IN_PROG_ST = "INSERT INTO InProgressCourses(sid, code, classCode) "
             + " VALUES(?,?,?)"
@@ -50,50 +48,52 @@ public class StudentRepository {
     public static final String CLR_IN_PROG_QUEUE = "DELETE FROM InProgressQueue WHERE sid = ?;";
     public static final String CLR_QUEUE = "DELETE FROM WaitQueue WHERE sid = ?;";
 
-    public static StudentRepository getInstance() throws Exception {
+    public static IemdbRepository getInstance() throws Exception {
         if (instance == null) {
-            try {
-                instance = new StudentRepository();
-            } catch (SQLException e) {
-                e.printStackTrace();
-                System.out.println("error in StudentRepository.create query.");
-            }
+            instance = new IemdbRepository();
         }
         return instance;
     }
 
-    private StudentRepository() throws Exception {
-        OfferingRepository.getInstance(); // to make sure course tables are created
+    private IemdbRepository() throws Exception {
+//        OfferingRepository.getInstance(); // to make sure course tables are created
         Connection con = ConnectionPool.getConnection();
         Statement createTableStatement = con.createStatement();
+
         createTableStatement.addBatch(
-                "CREATE TABLE IF NOT EXISTS Student(id CHAR(50), name CHAR(225), secondName CHAR(225), " +
-                   "email CHAR(225), password CHAR(225), birthDate CHAR(15), field CHAR(225), faculty CHAR(225), " +
-                   "level CHAR(225), status CHAR(225), img CHAR(255), PRIMARY KEY(id));"
+            "CREATE TABLE IF NOT EXISTS Actor(id INT, name CHAR(225), " +
+                "birthDate CHAR(15), nationality CHAR(225), " +
+                "image CHAR(225), PRIMARY KEY(id));"
+        );
+
+        createTableStatement.addBatch(
+            "CREATE TABLE IF NOT EXISTS Movie(id INT, name CHAR(225), ageLimit INT, " +
+                "duration INT, imdbRate FLOAT, summary CHAR(255), director CHAR(225), " +
+                "releaseDate CHAR(225), score INT, coverImage CHAR(225), image CHAR(225), PRIMARY KEY(id));"
+        );
+
+        createTableStatement.addBatch(
+                "CREATE TABLE IF NOT EXISTS Comment(id INT, likes INT, dislikes INT, userEmail CHAR(22), " +
+                    "text char(255), creationDate char(255), movieId INT, " +
+                    "PRIMARY KEY(id)," +
+                    "FOREIGN KEY (movieId) REFERENCES Movie(id));"
         );
         createTableStatement.addBatch(
-                "CREATE TABLE IF NOT EXISTS Grade(sid CHAR(50), code CHAR(50), term INT, grade INT, " +
-                    "PRIMARY KEY(sid, code, term)," +
-                    "FOREIGN KEY (sid) REFERENCES Student(id)," +
-                    "FOREIGN KEY (code) REFERENCES Course(code));"
+                "CREATE TABLE IF NOT EXISTS CommentVote(id INT, userEmail CHAR(22), " +
+                        "vote INT, commentId INT, " +
+                        "PRIMARY KEY(id), " +
+                        "FOREIGN KEY (commentId) REFERENCES Comment(id));"
         );
         createTableStatement.addBatch(
-                "CREATE TABLE IF NOT EXISTS SubmittedCourses(sid CHAR(50), code CHAR(50), classCode CHAR(10), " +
-                   "PRIMARY KEY(sid, code, classCode)," +
-                   "FOREIGN KEY (sid) REFERENCES Student(id)," +
-                   "FOREIGN KEY (code, classCode) REFERENCES Course(code, classCode));"
+                "CREATE TABLE IF NOT EXISTS Rate(id INT, userEmail CHAR(22), " +
+                        "score float, movieId INT, " +
+                        "PRIMARY KEY(id), " +
+                        "FOREIGN KEY (movieId) REFERENCES Movie(id));"
         );
         createTableStatement.addBatch(
-                "CREATE TABLE IF NOT EXISTS InProgressCourses(sid CHAR(50), code CHAR(50), classCode CHAR(10), " +
-                   "PRIMARY KEY(sid, code, classCode)," +
-                   "FOREIGN KEY (sid) REFERENCES Student(id)," +
-                   "FOREIGN KEY (code, classCode) REFERENCES Course(code, classCode));"
-        );
-        createTableStatement.addBatch(
-                "CREATE TABLE IF NOT EXISTS InProgressQueue(sid CHAR(50), code CHAR(50), classCode CHAR(10), " +
-                        "PRIMARY KEY(sid, code, classCode)," +
-                        "FOREIGN KEY (sid) REFERENCES Student(id)," +
-                        "FOREIGN KEY (code, classCode) REFERENCES Course(code, classCode));"
+                "CREATE TABLE IF NOT EXISTS User(id INT, email CHAR(22), " +
+                        "pass char(255), nickname char(255), name char(255), " +
+                        "birthdate date, PRIMARY KEY(id));"
         );
         createTableStatement.addBatch(
                 "CREATE TABLE IF NOT EXISTS WaitQueue(sid CHAR(50), code CHAR(50), classCode CHAR(10), " +
@@ -106,13 +106,15 @@ public class StudentRepository {
         createTableStatement.close();
         con.close();
 
-        Student[] students = getStudentsFromAPI();
-        for (Student student : students)
-            setGrades(student);
+//        Student[] students = getStudentsFromAPI();
+        List<Movie> Movies = IEMDB.getInstance().movies;
 
-        for (Student s : students) {
-            insert(s);
-            insertGrades(s);
+//        for (Movie movie : Movies)
+//            insert(movie);
+
+        for (Movie movie : Movies) {
+            insertMovie(movie);
+//            insertGrades(s);
         }
     }
 
@@ -138,8 +140,8 @@ public class StudentRepository {
 
         ArrayList<Grade> grades = new ArrayList<>();
         gradesArr.forEach(grade -> {
-                Grade newGrade = new Grade(grade.get("code").asText(), "", grade.get("grade").asInt(), grade.get("term").asInt(), 0);
-                grades.add(newGrade);
+            Grade newGrade = new Grade(grade.get("code").asText(), "", grade.get("grade").asInt(), grade.get("term").asInt(), 0);
+            grades.add(newGrade);
         });
         student.setGrades(grades);
     }
@@ -154,26 +156,25 @@ public class StudentRepository {
 
     protected String getInsertStatement() {
         return String.format(
-                "INSERT INTO %s(id, name, secondName, email, password, birthDate, field, faculty, level, status, img)"
-                + " VALUES(?,?,?,?,?,?,?,?,?,?,?)"
-                + "ON DUPLICATE KEY UPDATE id = id",
+                "INSERT INTO %s(id, name, ageLimit, duration, imdbRate, summary, director, releaseDate, score, coverImage, image)"
+                        + " VALUES(?,?,?,?,?,?,?,?,?,?,?)"
+                        + "ON DUPLICATE KEY UPDATE id = id",
                 TABLE_NAME);
     }
 
-    protected void fillInsertValues(PreparedStatement st, Student data) throws SQLException {
-        st.setString(1, data.getStudentId());
-        st.setString(2, data.getName());
-        st.setString(3, data.getSecondName());
-        st.setString(4, data.getEmail());
-        BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
-        String pw = encoder.encode(data.getPassword());
-        st.setString(5, pw);
-        st.setString(6, data.getBirthDate());
-        st.setString(7, data.getField());
-        st.setString(8, data.getFaculty());
-        st.setString(9, data.getLevel());
-        st.setString(10, data.getStatus());
-        st.setString(11, data.getImg());
+
+    protected void fillInsertValues(PreparedStatement ps, Movie data) throws SQLException {
+        ps.setString(1, data.Id.toString());
+        ps.setString(2, data.Name);
+        ps.setString(3, data.AgeLimit.toString());
+        ps.setString(4, data.Duration.toString());
+        ps.setString(5, Float.toString(data.IMDBRate));
+        ps.setString(6, data.Summary);
+        ps.setString(7, data.Director);
+        ps.setString(8, data.ReleaseDate);
+        ps.setString(9, data.Score.toString());
+        ps.setString(10, data.CoverImage);
+        ps.setString(11, data.Image);
     }
 
     protected String getFindAllStatement() {
@@ -404,7 +405,7 @@ public class StudentRepository {
         Connection con = ConnectionPool.getConnection();
         PreparedStatement st = con.prepareStatement(
                 "SELECT SUM(C.units) FROM InProgressCourses P, Course C " +
-                "WHERE P.sid = ? AND C.code = P.code AND C.classCode = P.classCode");
+                        "WHERE P.sid = ? AND C.code = P.code AND C.classCode = P.classCode");
         st.setString(1, sid);
         try {
             ResultSet resultSet = st.executeQuery();
@@ -525,16 +526,16 @@ public class StudentRepository {
         }
     }
 
-    public void insert(Student student) throws SQLException {
+    public void insertMovie(Movie movie) throws SQLException {
         Connection con = ConnectionPool.getConnection();
-        PreparedStatement st = con.prepareStatement(getInsertStatement());
-        fillInsertValues(st, student);
+        PreparedStatement ps = con.prepareStatement(getInsertStatement());
+        fillInsertValues(ps, movie);
         try {
-            st.execute();
-            st.close();
+            ps.execute();
+            ps.close();
             con.close();
         } catch (Exception e) {
-            st.close();
+            ps.close();
             con.close();
             System.out.println("error in Repository.insert query.");
             e.printStackTrace();

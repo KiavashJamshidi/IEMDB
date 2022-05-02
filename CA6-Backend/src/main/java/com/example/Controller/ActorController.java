@@ -1,6 +1,6 @@
 package com.example.Controller;
 
-import com.example.Exceptons.ActorNotFound;
+import com.example.Exceptions.ActorNotFound;
 import com.example.Model.IEMDB;
 import com.example.Model.Actor;
 import com.example.Model.Movie;
