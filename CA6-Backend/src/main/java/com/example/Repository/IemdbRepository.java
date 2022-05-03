@@ -6,6 +6,8 @@ import com.example.Exceptions.MovieNotFound;
 import com.example.Exceptions.ActorNotFound;
 import com.example.Model.*;
 import org.apache.commons.dbutils.DbUtils;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.io.IOException;
@@ -147,29 +149,28 @@ public class IemdbRepository {
 
     protected String getInsertStatementMovie() {
         return "INSERT INTO Movie(id, name, ageLimit, duration, imdbRate, summary, director, releaseDate, score, coverImage, image)"
-                + " VALUES(?,?,?,?,?,?,?,?,?,?,?)"
-                + "ON DUPLICATE KEY UPDATE id = id";
+            + " VALUES(?,?,?,?,?,?,?,?,?,?,?)"
+            + "ON DUPLICATE KEY UPDATE id = id";
     }
 
     protected String getInsertStatementActor() {
         return "INSERT INTO Actor(id, name, birthDate, nationality, image)"
-                + " VALUES(?,?,?,?,?)"
-                + "ON DUPLICATE KEY UPDATE id = id";
+            + " VALUES(?,?,?,?,?)"
+            + "ON DUPLICATE KEY UPDATE id = id";
     }
 
     protected String getInsertStatementComment() {
         return "INSERT INTO Comment(id, likes, dislikes, userEmail, text, creationDate, movieId)"
-                + " VALUES(?,?,?,?,?,?,?)"
-                + "ON DUPLICATE KEY UPDATE id = id";
+            + " VALUES(?,?,?,?,?,?,?)"
+            + "ON DUPLICATE KEY UPDATE id = id";
     }
 
 
     protected String getInsertStatementUser() {
         return "INSERT INTO User(id, email, pass, nickname, name, birthDate)"
-                + " VALUES(?,?,?,?,?,?)"
-                + "ON DUPLICATE KEY UPDATE id = id";
+            + " VALUES(?,?,?,?,?,?)"
+            + "ON DUPLICATE KEY UPDATE id = id";
     }
-
 
     protected void fillInsertValuesMovie(PreparedStatement ps, Movie data) throws SQLException {
         ps.setString(1, data.Id.toString());
@@ -212,20 +213,64 @@ public class IemdbRepository {
         ps.setString(6, data.BirthDate.toString());
     }
 
-//    protected String getFindAllStatement() {
-//        return String.format("SELECT * FROM %s;", TABLE_NAME);
-//    }
-//
+    protected String getFindAllStatement(String TableName) {
+        return String.format("SELECT * FROM %s;", TableName);
+    }
+
     protected Actor convertResultSetToDomainModelActor(ResultSet rs) throws Exception {
-        return new Actor(
-                Integer.parseInt(rs.getString(1)),
-                rs.getString(2),
-                rs.getString(3),
-                rs.getString(4),
-                rs.getString(5)
+        return new Actor (
+            Integer.parseInt(rs.getString(1)),
+            rs.getString(2),
+            rs.getString(3),
+            rs.getString(4),
+            rs.getString(5)
         );
     }
-//
+
+    protected ArrayList<Movie> convertResultSetToDomainModelList(ResultSet rs) throws Exception {
+        ArrayList<Movie> movies = new ArrayList<>();
+        while (rs.next()) {
+            movies.add(this.convertResultSetToDomainModelMovie(rs));
+        }
+        return movies;
+    }
+
+    public ArrayList<Movie> getAllMovies() throws Exception {
+        Connection con = ConnectionPool.getConnection();
+        PreparedStatement mv = con.prepareStatement(getFindAllStatement("Movie"));
+        try {
+            ResultSet resultSet = mv.executeQuery();
+            if (resultSet == null) {
+                return new ArrayList<>();
+            }
+            return convertResultSetToDomainModelList(resultSet);
+        } catch (Exception e) {
+            System.out.println("error in Movies.findAll query.");
+            e.printStackTrace();
+            throw e;
+        } finally {
+            DbUtils.close(mv);
+            DbUtils.close(con);
+        }
+    }
+
+    protected Movie convertResultSetToDomainModelMovie(ResultSet rs) throws Exception {
+//        Date date = new SimpleDateFormat("yyyy-MM-dd").parse(rs.getString(8));
+//        return new Movie(
+//            Integer.parseInt(rs.getString(1)),
+//            rs.getString(2),
+//            Integer.parseInt(rs.getString(3)),
+//            Float.parseFloat(rs.getString(4)),
+//            rs.getString(5),
+//            rs.getString(6),
+//            Integer.parseInt(rs.getString(7)),
+//            date,
+//            rs.getString(9),
+//            rs.getString(10),
+//            rs.getString(11)
+//        );
+    }
+
 //    protected ArrayList<Student> convertResultSetToDomainModelList(ResultSet rs) throws Exception {
 //        ArrayList<Student> students = new ArrayList<>();
 //        while (rs.next()) {
@@ -518,25 +563,25 @@ public class IemdbRepository {
     }
 
 
-//    public Student findById(String id) throws Exception {
-//        Connection con = ConnectionPool.getConnection();
-//        PreparedStatement st = con.prepareStatement(getFindByIdStatement());
-//        st.setString(1, id);
-//        try {
-//            ResultSet resultSet = st.executeQuery();
-//            if (!resultSet.next()) {
-//                return null;
-//            }
-//            return convertResultSetToDomainModel(resultSet);
-//        } catch (Exception e) {
-//            System.out.println("error in CourseRepository.find query.");
-//            e.printStackTrace();
-//            throw e;
-//        } finally {
-//            DbUtils.close(st);
-//            DbUtils.close(con);
-//        }
-//    }
+    public Movie findById(String id) throws Exception {
+        Connection con = ConnectionPool.getConnection();
+        PreparedStatement mv = con.prepareStatement("SELECT * FROM Movie WHERE id = ?");
+        mv.setString(1, id);
+        try {
+            ResultSet resultSet = mv.executeQuery();
+            if (!resultSet.next()) {
+                return null;
+            }
+            return convertResultSetToDomainModelMovie(resultSet);
+        } catch (Exception e) {
+            System.out.println("error in CourseRepository.find query.");
+            e.printStackTrace();
+            throw e;
+        } finally {
+            DbUtils.close(mv);
+            DbUtils.close(con);
+        }
+    }
 
     public void insertMovie(Movie movie) throws SQLException {
         Connection con = ConnectionPool.getConnection();

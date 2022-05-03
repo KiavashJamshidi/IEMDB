@@ -44,11 +44,12 @@ public class MoviesController {
         System.out.println("Movie controller started!");
         int movieId = Integer.parseInt(id);
         IEMDB.getInstance().commentService.AddCommentToMovie(
-                movieId,
-                IEMDB.getInstance().loginUser.Email,
-                body.get("text").asText(),
-                IEMDB.getInstance().movies,
-                IEMDB.getInstance().comments);
+            movieId,
+            IEMDB.getInstance().loginUser.Email,
+            body.get("text").asText(),
+            IEMDB.getInstance().movies,
+            IEMDB.getInstance().comments
+        );
 
         return createSuccessResponse("comment is added to the movie successfully");
     }
