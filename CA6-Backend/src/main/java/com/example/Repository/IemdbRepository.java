@@ -97,7 +97,7 @@ public class IemdbRepository {
                         "FOREIGN KEY (movieId) REFERENCES Movie(id));"
         );
         createTableStatement.addBatch(
-                "CREATE TABLE IF NOT EXISTS User(id INT, email CHAR(22), " +
+                "CREATE TABLE IF NOT EXISTS User(id INT, email CHAR(22) UNIQUE, " +
                         "pass char(255), nickname char(255), name char(255), " +
                         "birthDate date, PRIMARY KEY(id));"
         );
@@ -699,7 +699,6 @@ public class IemdbRepository {
             con.close();
             System.out.println("Comment: error in Repository.insert query.");
             throw e;
-//            e.printStackTrace();
         }
     }
 
