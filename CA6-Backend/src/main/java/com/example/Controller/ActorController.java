@@ -13,14 +13,14 @@ import java.util.List;
 public class ActorController {
     @GetMapping("/{actorId}")
     public Actor getActor(@PathVariable("actorId") String id) throws ActorNotFound, Exception {
-        Integer actorId = Integer.parseInt(id);
-        System.out.println("Actor controller started!");
+        System.out.println("Actor controller started: getActor");
         IemdbRepository repo = IemdbRepository.getInstance();
-        if (IEMDB.getInstance().actorService.FindActorIndex(actorId, IEMDB.getInstance().actors) == -1) {
+        Actor actor = repo.findActor(id);
+        if (actor == null) {
             System.out.println("Actor not Found");
             throw new ActorNotFound();
         }
-        return IEMDB.getInstance().actorService.FindActor(actorId, IEMDB.getInstance().actors);
+        return actor;
     }
 
     @PostMapping("/{actorId}/moviesActed")

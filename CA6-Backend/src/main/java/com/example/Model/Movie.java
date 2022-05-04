@@ -16,6 +16,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.lang.Math;
 
 public class Movie implements Comparable<Movie>{
     @Getter @Setter public Integer Id, AgeLimit, Duration;
@@ -28,7 +29,7 @@ public class Movie implements Comparable<Movie>{
     @Getter @Setter public List<Comment> Comments;
     @Getter @Setter public List<Rate> Rates;
     @Getter @Setter public List<Actor> Actors;
-    @Getter @Setter public BigDecimal Score;
+    @Getter @Setter public float Score;
     @Getter @Setter public String CoverImage;
     @Getter @Setter public String Image;
 
@@ -55,7 +56,7 @@ public class Movie implements Comparable<Movie>{
         Actors = setActors(cast);
         Comments = new ArrayList<>();
         Rates = new ArrayList<>();
-        Score = null;
+        Score = -1;
         ScoreRecommendation = 0;
         Image = img;
         CoverImage = Coverimg;
@@ -82,10 +83,7 @@ public class Movie implements Comparable<Movie>{
         for(Rate rate : Rates){
             sum += rate.Score;
         }
-        DecimalFormat df = new DecimalFormat("0.00");
-        df.setRoundingMode(RoundingMode.DOWN);
-        BigDecimal ans = BigDecimal.valueOf(sum / Rates.size());
-        Score = ans.setScale(1, RoundingMode.HALF_UP);
+        Score = Math.round(sum / Rates.size());
     }
 
     public boolean checkForRateUpdates(String userEmail, Integer score){

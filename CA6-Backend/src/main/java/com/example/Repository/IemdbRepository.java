@@ -1,22 +1,13 @@
 package com.example.Repository;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.example.Exceptions.MovieNotFound;
-import com.example.Exceptions.ActorNotFound;
 import com.example.Model.*;
 import org.apache.commons.dbutils.DbUtils;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.util.StringUtils;
 
-import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.sql.*;
+import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.Date;
 
 public class IemdbRepository {
     private static final String TABLE_NAME = "Movie";
@@ -64,14 +55,27 @@ public class IemdbRepository {
 
         createTableStatement.addBatch(
             "CREATE TABLE IF NOT EXISTS Actor(id INT, name CHAR(225), " +
-                    "birthDate CHAR(15), nationality CHAR(225), " +
+                    "birthDate CHAR(255), nationality CHAR(225), " +
                     "image CHAR(225), PRIMARY KEY(id));"
         );
 
         createTableStatement.addBatch(
             "CREATE TABLE IF NOT EXISTS Movie(id INT, name CHAR(225), ageLimit INT, " +
-                    "duration INT, imdbRate FLOAT, summary CHAR(255), director CHAR(225), " +
-                    "releaseDate CHAR(225), score INT, coverImage CHAR(225), image CHAR(225), PRIMARY KEY(id));"
+                    "duration INT, imdbRate FLOAT, summary VARCHAR(10000), director CHAR(225), " +
+                    "releaseDate CHAR(225), score INT, coverImage CHAR(225), image CHAR(225), writers CHAR(255), PRIMARY KEY(id));"
+        );
+
+        createTableStatement.addBatch(
+                "CREATE TABLE IF NOT EXISTS Actor_Movie(actorId INT, movieId INT, " +
+                        "PRIMARY KEY(actorId, movieId), " +
+                        "FOREIGN KEY (movieId) REFERENCES Movie(id), " +
+                        "FOREIGN KEY (actorId) REFERENCES Actor(id));"
+        );
+
+        createTableStatement.addBatch(
+                "CREATE TABLE IF NOT EXISTS Movie_Genre(movieId INT, genre char(255), " +
+                        "PRIMARY KEY(movieId, genre), " +
+                        "FOREIGN KEY (movieId) REFERENCES Movie(id));"
         );
 
         createTableStatement.addBatch(
@@ -107,12 +111,14 @@ public class IemdbRepository {
         List<User> users = IEMDB.getInstance().users;
         List<Comment> comments = IEMDB.getInstance().comments;
 
-        for (Movie movie : movies) { //check ali for insert grade
-            insertMovie(movie);
-        }
-
         for (Actor actor : actors)
             insertActor(actor);
+
+        for (Movie movie : movies) { //check ali for insert grade
+            insertMovie(movie);
+            insertMovieActors(movie);
+            insertMovieGenres(movie);
+        }
 
         for (Comment comment : comments)
             insertComment(comment);
@@ -148,9 +154,21 @@ public class IemdbRepository {
 //    }
 
     protected String getInsertStatementMovie() {
-        return "INSERT INTO Movie(id, name, ageLimit, duration, imdbRate, summary, director, releaseDate, score, coverImage, image)"
-            + " VALUES(?,?,?,?,?,?,?,?,?,?,?)"
+        return "INSERT INTO Movie(id, name, ageLimit, duration, imdbRate, summary, director, releaseDate, score, coverImage, image, writers)"
+            + " VALUES(?,?,?,?,?,?,?,?,?,?,?,?)"
             + "ON DUPLICATE KEY UPDATE id = id";
+    }
+
+    protected String getInsertStatementActor_Movie(){
+        return "INSERT INTO Actor_Movie(actorId, movieId)"
+                + " VALUES(?,?)"
+                + "ON DUPLICATE KEY UPDATE actorId=actorId, movieId=movieId";
+    }
+
+    protected String getInsertStatementMovie_Genre(){
+        return "INSERT INTO Movie_Genre(movieId, genre)"
+                + " VALUES(?,?)"
+                + "ON DUPLICATE KEY UPDATE movieId=movieId, genre=genre";
     }
 
     protected String getInsertStatementActor() {
@@ -181,9 +199,21 @@ public class IemdbRepository {
         ps.setString(6, data.Summary);
         ps.setString(7, data.Director);
         ps.setString(8, data.ReleaseDate);
-        ps.setString(9, data.Score.toString());
+        ps.setString(9, Float.toString(data.Score));
         ps.setString(10, data.CoverImage);
         ps.setString(11, data.Image);
+        String writers = String.join(", ", data.Writers);
+        ps.setString(12, writers);
+    }
+
+    protected void fillInsertValuesActed_in(PreparedStatement ps, int actorId, int movieId) throws SQLException {
+        ps.setString(1, String.valueOf(actorId));
+        ps.setString(2, String.valueOf(movieId));
+    }
+
+    protected void fillInsertValuesMovie_Genre(PreparedStatement ps, int movieId, String genre) throws SQLException {
+        ps.setString(1, String.valueOf(movieId));
+        ps.setString(2, genre);
     }
 
     protected void fillInsertValuesActor(PreparedStatement ps, Actor data) throws SQLException {
@@ -255,20 +285,25 @@ public class IemdbRepository {
     }
 
     protected Movie convertResultSetToDomainModelMovie(ResultSet rs) throws Exception {
-//        Date date = new SimpleDateFormat("yyyy-MM-dd").parse(rs.getString(8));
-//        return new Movie(
-//            Integer.parseInt(rs.getString(1)),
-//            rs.getString(2),
-//            Integer.parseInt(rs.getString(3)),
-//            Float.parseFloat(rs.getString(4)),
-//            rs.getString(5),
-//            rs.getString(6),
-//            Integer.parseInt(rs.getString(7)),
-//            date,
-//            rs.getString(9),
-//            rs.getString(10),
-//            rs.getString(11)
-//        );
+        Date date = new SimpleDateFormat("yyyy-MM-dd").parse(rs.getString(8));
+        String string_writers = rs.getString(12);
+        List<String> writers = new ArrayList<String>(Arrays.asList(string_writers.split(", ")));
+
+        return new Movie(
+            Integer.parseInt(rs.getString(1)),
+            rs.getString(2),
+            Integer.parseInt(rs.getString(3)),
+            Float.parseFloat(rs.getString(5)),
+            rs.getString(6),
+            rs.getString(7),
+            Integer.parseInt(rs.getString(4)),
+            date,
+            writers, //writers
+            new ArrayList<String>(),
+            new ArrayList<Integer>(),
+            rs.getString(11),
+            rs.getString(10)
+        );
     }
 
 //    protected ArrayList<Student> convertResultSetToDomainModelList(ResultSet rs) throws Exception {
@@ -563,7 +598,7 @@ public class IemdbRepository {
     }
 
 
-    public Movie findById(String id) throws Exception {
+    public Movie findMovie(String id) throws Exception {
         Connection con = ConnectionPool.getConnection();
         PreparedStatement mv = con.prepareStatement("SELECT * FROM Movie WHERE id = ?");
         mv.setString(1, id);
@@ -594,9 +629,45 @@ public class IemdbRepository {
         } catch (Exception e) {
             ps.close();
             con.close();
-            System.out.println("error in Repository.insert query.");
+            System.out.println("Movie: error in Repository.insert query.");
             e.printStackTrace();
         }
+    }
+
+    public void insertMovieActors(Movie movie) throws SQLException {
+        Connection con = ConnectionPool.getConnection();
+        for (int actorId : movie.Cast) {
+            PreparedStatement ps = con.prepareStatement(getInsertStatementActor_Movie());
+            fillInsertValuesActed_in(ps, actorId, movie.Id);
+            try {
+                ps.execute();
+                ps.close();
+            } catch (Exception e) {
+                ps.close();
+                con.close();
+                System.out.println("MovieActors: error in Repository.insert query.");
+                e.printStackTrace();
+            }
+        }
+        con.close();
+    }
+
+    public void insertMovieGenres(Movie movie) throws SQLException {
+        Connection con = ConnectionPool.getConnection();
+        for (String genre : movie.Genres) {
+            PreparedStatement ps = con.prepareStatement(getInsertStatementMovie_Genre());
+            fillInsertValuesMovie_Genre(ps, movie.Id, genre);
+            try {
+                ps.execute();
+                ps.close();
+            } catch (Exception e) {
+                ps.close();
+                con.close();
+                System.out.println("Movie_Genre: error in Repository.insert query.");
+                e.printStackTrace();
+            }
+        }
+        con.close();
     }
 
     public void insertActor(Actor actor) throws SQLException {
@@ -610,7 +681,7 @@ public class IemdbRepository {
         } catch (Exception e) {
             ps.close();
             con.close();
-            System.out.println("error in Repository.insert query.");
+            System.out.println("Actor: error in Repository.insert query.");
             e.printStackTrace();
         }
     }
@@ -626,8 +697,28 @@ public class IemdbRepository {
         } catch (Exception e) {
             ps.close();
             con.close();
-            System.out.println("error in Repository.insert query.");
+            System.out.println("Comment: error in Repository.insert query.");
+            throw e;
+//            e.printStackTrace();
+        }
+    }
+
+    public int getDataSize(String table) throws Exception {
+        Connection con = ConnectionPool.getConnection();
+        PreparedStatement mv = con.prepareStatement("SELECT COUNT(*) FROM " + table);
+        try {
+            ResultSet resultSet = mv.executeQuery();
+            if (!resultSet.next()) {
+                return 0;
+            }
+            return resultSet.getInt(1);
+        } catch (Exception e) {
+            System.out.println("error in select count(*) query.");
             e.printStackTrace();
+            throw e;
+        } finally {
+            DbUtils.close(mv);
+            DbUtils.close(con);
         }
     }
 
@@ -642,7 +733,7 @@ public class IemdbRepository {
         } catch (Exception e) {
             ps.close();
             con.close();
-            System.out.println("error in Repository.insert query.");
+            System.out.println("User: error in Repository.insert query.");
             e.printStackTrace();
         }
     }

@@ -124,6 +124,6 @@ public class MovieService {
             temp.retainAll(movie.Genres);
             genreSimilarity += temp.size();
         }
-        movie.ScoreRecommendation = 3 * genreSimilarity + movie.IMDBRate + ((movie.Score == null) ? 0 : movie.Score.floatValue());
+        movie.ScoreRecommendation = 3 * genreSimilarity + movie.IMDBRate + ((movie.Score == -1) ? 0 : movie.Score);
     }
 }

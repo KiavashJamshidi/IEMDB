@@ -10,7 +10,7 @@ public class ConnectionPool {
     private static final BasicDataSource ds = new BasicDataSource();
     private final static String dbURL = "jdbc:mysql://127.0.0.1:3306/iemdb";
     private final static String dbUserName = "root";
-    private final static String dbPassword = "";
+    private final static String dbPassword = "123321";
 
     static {
         try {

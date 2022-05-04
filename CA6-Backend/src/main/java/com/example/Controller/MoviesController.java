@@ -1,8 +1,10 @@
 package com.example.Controller;
 
 import com.example.Exceptions.MovieNotFound;
+import com.example.Model.Actor;
 import com.example.Model.IEMDB;
 import com.example.Model.Movie;
+import com.example.Repository.IemdbRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -23,35 +25,38 @@ public class MoviesController {
 
     @GetMapping("/movies/{movieId}")
     public Movie getMovie(@PathVariable("movieId") String id) throws Exception {
-        int movieId = Integer.parseInt(id);
-        System.out.println("Movie controller started...!");
-        if (IEMDB.getInstance().movieService.FindMovieIndex(movieId, IEMDB.getInstance().movies) == -1) {
+        System.out.println("Movie controller started: getMovie");
+        IemdbRepository repo = IemdbRepository.getInstance();
+        Movie movie = repo.findMovie(id);
+
+        if (movie == null) {
             System.out.println("Movie not Found");
             throw new MovieNotFound();
         }
-        return IEMDB.getInstance().movieService.GetMovieByID(movieId, IEMDB.getInstance().movies);
+        return movie;
     }
 
     @GetMapping("/movies")
     public List<Movie>  getMovies() throws Exception {
-        System.out.println("Movie controller started!");
-//        showMovies.sort((o1, o2) -> Float.compare(o2.IMDBRate, o1.IMDBRate));
-        return IEMDB.getInstance().movies;
+        System.out.println("Movie controller started: getMovies");
+        IemdbRepository repo = IemdbRepository.getInstance();
+        return repo.getAllMovies();
     }
 
     @PostMapping("/movies/{movieId}/addComment")
-    public JsonNode addComment(@PathVariable("movieId") String id, @RequestBody JsonNode body) throws Exception {
-        System.out.println("Movie controller started!");
+    public JsonNode addComment(@PathVariable("movieId") String id, @RequestBody JsonNode body) {
+        System.out.println("Movie controller started: addComment");
         int movieId = Integer.parseInt(id);
-        IEMDB.getInstance().commentService.AddCommentToMovie(
-            movieId,
-            IEMDB.getInstance().loginUser.Email,
-            body.get("text").asText(),
-            IEMDB.getInstance().movies,
-            IEMDB.getInstance().comments
-        );
-
-        return createSuccessResponse("comment is added to the movie successfully");
+        try{
+            IEMDB.getInstance().commentService.AddCommentToMovie(
+                    movieId,
+                    IEMDB.getInstance().loginUser.Email,
+                    body.get("text").asText()
+            );
+            return createSuccessResponse("comment is added to the movie successfully");
+        }catch (Exception e){
+            return createFailureResponse("comment not added!");
+        }
     }
 
     @PostMapping("/movies/{movieId}/rate")
@@ -146,6 +151,14 @@ public class MoviesController {
         ObjectMapper objectMapper = new ObjectMapper();
         ObjectNode resp = objectMapper.createObjectNode();
         resp.put("success", "true");
+        resp.put("message", msg);
+        return resp;
+    }
+
+    private JsonNode createFailureResponse(String msg) {
+        ObjectMapper objectMapper = new ObjectMapper();
+        ObjectNode resp = objectMapper.createObjectNode();
+        resp.put("success", "false");
         resp.put("message", msg);
         return resp;
     }

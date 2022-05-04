@@ -7,6 +7,7 @@ import com.example.Model.User;
 import org.json.JSONObject;
 
 import java.util.List;
+import com.example.Repository.IemdbRepository;
 
 public class CommentService {
     ErrorHandler errorHandler = new ErrorHandler();
@@ -32,19 +33,16 @@ public class CommentService {
         return errorHandler.success("comment with id "+ newComment.Id.toString()  +" added successfully");
     }
 
-    public void AddCommentToMovie(int movieId, String userEmail, String text, List<Movie> movies, List<Comment> comments){
-        UserService userService = new UserService();
-        MovieService movieService = new MovieService();
-        Integer movieIndex = movieService.FindMovieIndex(movieId, movies);
-
+    public void AddCommentToMovie(int movieId, String userEmail, String text) throws Exception {
+        IemdbRepository repo = IemdbRepository.getInstance();
+        int comments_size = repo.getDataSize("Comment");
         Comment newComment = new Comment(
-                comments.size() + 1,
+                comments_size + 1,
                 userEmail,
                 movieId,
                 text
         );
-        movies.get(movieIndex).AddComment(newComment);
-        comments.add(newComment);
+        repo.insertComment(newComment);
     }
 
     public Integer FindCommentIndex(Integer id, List<Comment> comments){
