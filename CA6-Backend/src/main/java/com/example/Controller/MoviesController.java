@@ -60,43 +60,63 @@ public class MoviesController {
     }
 
     @PostMapping("/movies/{movieId}/rate")
-    public JsonNode rateMovie(@PathVariable("movieId") String id, @RequestBody JsonNode body) throws Exception {
-        System.out.println("Movie controller started!");
+    public JsonNode rateMovie(@PathVariable("movieId") String id, @RequestBody JsonNode body){
+        System.out.println("Movie controller started: rateMovie");
         String rateValue = body.get("RateValue").asText();
-        IEMDB.getInstance().AddRateToMovie(String.valueOf(IEMDB.getInstance().loginUser.Id), id, rateValue);
-        return createSuccessResponse("movie is rated successfully");
+        try {
+            IEMDB.getInstance().AddRateToMovie(String.valueOf(IEMDB.getInstance().loginUser.Id), id, rateValue);
+            return createSuccessResponse("movie is rated successfully");
+        }catch (Exception e){
+            return createFailureResponse("rate not added!");
+        }
     }
 
     @PostMapping("/movies/{movieId}/addToWatchlist")
     public JsonNode addMovieToWatchlist(@PathVariable("movieId") String movieId) throws Exception {
-        System.out.println("Movie controller started!");
+        System.out.println("Movie controller started: addMovieToWatchlist");
         int userId = IEMDB.getInstance().loginUser.Id;
-        IEMDB.getInstance().AddToWatchlistGet(String.valueOf(userId), movieId);
-        return createSuccessResponse("movie is added to the watchlist successfully");
+        try{
+            IEMDB.getInstance().AddToWatchlistGet(String.valueOf(userId), movieId);
+            return createSuccessResponse("movie is added to the watchlist successfully");
+        }catch (Exception e){
+            return createFailureResponse("could not add movie to watchlist!");
+        }
     }
 
     @GetMapping("/watchlist")
     public List<Movie> getWatchlist() throws Exception {
-        System.out.println("Movie controller started!");
-        List<Movie> showWatchlist = IEMDB.getInstance().loginUser.watchList;
-        showWatchlist.sort((o1, o2) -> Float.compare(o2.IMDBRate, o1.IMDBRate));
-        return showWatchlist;
+        System.out.println("Movie controller started: getWatchlist");
+        try {
+            List<Movie> showWatchlist = IemdbRepository.getInstance().getWatchlist(IEMDB.getInstance().loginUser.Id);
+            showWatchlist.sort((o1, o2) -> Float.compare(o2.IMDBRate, o1.IMDBRate));
+            return showWatchlist;
+        }catch (Exception e){
+            return new ArrayList<>();
+        }
     }
 
     @PostMapping("/watchlist/{movieId}/remove")
     public JsonNode removeMovieFromWatchlist(@PathVariable("movieId") String movieId) throws Exception {
-        System.out.println("Movie controller started!");
-        IEMDB.getInstance().RemoveFromWatchlist(String.valueOf(IEMDB.getInstance().loginUser.Id), movieId);
-        return createSuccessResponse("movie is removed from the watchlist successfully");
+        System.out.println("Movie controller started: removeMovieFromWatchlist");
+        try{
+            IemdbRepository.getInstance().removeFromWatchlist(String.valueOf(IEMDB.getInstance().loginUser.Id), movieId);
+            return createSuccessResponse("movie is removed from the watchlist successfully");
+        }catch (Exception e){
+            return createFailureResponse("could not remove movie from watchlist!");
+        }
     }
 
     @PostMapping("/voteComment/{commentId}/{vote}")
     public JsonNode voteComment(@PathVariable("commentId") String commentId,
                             @PathVariable("vote") String vote) throws Exception {
-        System.out.println("Movie controller started!");
+        System.out.println("Movie controller started: voteComment");
         int userId = IEMDB.getInstance().loginUser.Id;
-        IEMDB.getInstance().VoteComment(String.valueOf(userId), commentId, vote);
-        return createSuccessResponse("vote is added to the comment successfully");
+        try{
+            IEMDB.getInstance().VoteComment(String.valueOf(userId), commentId, vote);
+            return createSuccessResponse("vote is added to the comment successfully");
+        }catch (Exception e){
+            return createFailureResponse("could not vote comment!");
+        }
     }
 
     @GetMapping("/movies/searchByDate/{search}")
@@ -105,14 +125,13 @@ public class MoviesController {
         String[] splited = search.split("-");
         String start_year = splited[0];
         String end_year = splited[1];
-        return IEMDB.getInstance().movieService.SearchMoviesByDate(
-            Integer.parseInt(start_year),Integer.parseInt(end_year),IEMDB.getInstance().movies);
+        return IemdbRepository.getInstance().searchMovieByDate(start_year, end_year);
     }
 
     @GetMapping("/movies/searchByName/{name}")
     public List<Movie> searchByName(@PathVariable("name") String name) throws Exception {
-        System.out.println("Movie controller started!");
-        return IEMDB.getInstance().movieService.SearchMoviesByName(name, IEMDB.getInstance().movies);
+        System.out.println("Movie controller started: searchByName");
+        return IemdbRepository.getInstance().searchMovieByName(name);
     }
 
     @GetMapping("/movies/searchByGenre/{genre-name}")
@@ -120,7 +139,6 @@ public class MoviesController {
         System.out.println("Movie controller started!");
         return IEMDB.getInstance().movieService.SearchMoviesByGenre(genreName, IEMDB.getInstance().movies);
     }
-
 
     @PostMapping("/movies/sortByImdbRate")
     public List<Movie> sortByImdbRate() throws IOException, ParseException {

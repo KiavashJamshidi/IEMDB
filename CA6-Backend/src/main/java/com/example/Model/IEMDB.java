@@ -4,6 +4,7 @@ package com.example.Model;
 //import org.apache.http.client.methods.HttpGet;
 //import org.apache.http.impl.client.CloseableHttpClient;
 //import org.apache.http.impl.client.HttpClients;
+import com.example.Repository.IemdbRepository;
 import com.example.Services.*;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -111,19 +112,19 @@ public class IEMDB {
     }
 
 
-    public int AddToWatchlistGet(String userId, String movieId) {
+    public int AddToWatchlistGet(String userId, String movieId) throws Exception {
         if(!isInteger(userId) || !isInteger(movieId))
             return -1;
 
-        int userIndex = userService.FindUserIndexById(Integer.parseInt(userId), users);
-        if (userIndex == -1)
-            return -1;
+        User user;
+        user = IemdbRepository.getInstance().findUser(userId);
 
-        User user = users.get(userIndex);
         JSONObject newJSONObject = new JSONObject();
-        newJSONObject.put("userEmail", user.Email);
+        newJSONObject.put("userId", String.valueOf(user.Id));
         newJSONObject.put("movieId", movieId);
+
         JSONObject result = userService.AddToWatchList(newJSONObject, users, movies);
+
         if(result.get("data").equals("AgeLimitError"))
             return -2;
         if (result.get("success").equals(false))
@@ -131,7 +132,7 @@ public class IEMDB {
         return 0;
     }
 
-    public boolean RemoveFromWatchlist(String userId, String movieId) {
+    public boolean RemoveFromWatchlist(String userId, String movieId) throws Exception {
         if(!isInteger(userId) || !isInteger(movieId))
             return false;
 
@@ -144,34 +145,31 @@ public class IEMDB {
         newJSONObject.put("userEmail", user.Email);
         newJSONObject.put("movieId", movieId);
         JSONObject result = userService.RemoveFromWatchList(newJSONObject, users, movies);
-
         return !result.get("success").equals(false);
     }
 
-    public boolean AddRateToMovie(String userId, String movieId, String rate)  {
+    public boolean AddRateToMovie(String userId, String movieId, String rate) throws Exception {
         if(!isInteger(userId) || !isInteger(movieId) || !isInteger(rate))
             return false;
 
-        int userIndex = userService.FindUserIndexById(Integer.parseInt(userId), users);
-        if(userIndex == -1)
-            return false;
-        User user = users.get(userIndex);
+        User user = IemdbRepository.getInstance().findUser(userId);
+        if (user == null)
+            throw new Exception("User not found!");
+
         JSONObject newJSONObject = new JSONObject();
         newJSONObject.put("userEmail", user.Email);
         newJSONObject.put("movieId", movieId);
         newJSONObject.put("score", rate);
 
-        JSONObject result = rateService.AddRateToMovie(newJSONObject, users, movies);
+        JSONObject result = rateService.AddRateToMovie(newJSONObject);
         return !result.get("success").equals(false);
     }
 
-    public boolean VoteComment(String userId, String commentId, String vote)  {
+    public boolean VoteComment(String userId, String commentId, String vote) throws Exception {
         if(!isInteger(userId) || !isInteger(commentId) || !isInteger(vote))
             return false;
-        int userIndex = userService.FindUserIndexById(Integer.parseInt(userId), users);
-        if(userIndex == -1)
-            return false;
-        User user = users.get(userIndex);
+
+        User user = IemdbRepository.getInstance().findUser(userId);
         JSONObject newJSONObject = new JSONObject();
         newJSONObject.put("userEmail", user.Email);
         newJSONObject.put("commentId", commentId);

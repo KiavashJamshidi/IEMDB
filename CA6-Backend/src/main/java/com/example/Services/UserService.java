@@ -3,6 +3,7 @@ package com.example.Services;
 import com.example.Model.ErrorHandler;
 import com.example.Model.Movie;
 import com.example.Model.User;
+import com.example.Repository.IemdbRepository;
 import org.json.JSONObject;
 import java.time.LocalDate;
 import java.time.Period;
@@ -69,30 +70,20 @@ public class UserService {
         return period.getYears();
     }
 
-    public JSONObject AddToWatchList(JSONObject jsonObject, List<User> users, List<Movie> movies){
-        String userEmail = jsonObject.get("userEmail").toString();
-        Integer movieId = Integer.parseInt(jsonObject.get("movieId").toString());
-        Integer movieIndex = movieService.FindMovieIndex(movieId, movies);
+    public JSONObject AddToWatchList(JSONObject jsonObject, List<User> users, List<Movie> movies) throws Exception {
+        String userId = jsonObject.getString("userId");
+        String movieId = jsonObject.getString("movieId");
 
-        if (!UserExists(userEmail, users))
-            return errorHandler.fail("UserNotFound");
-
-        if (movieIndex == -1)
-            return errorHandler.fail("MovieNotFound");
-
-        Integer userIndex = FindUserIndex(userEmail, users);
-        User currentUser = users.get(userIndex);
-        Movie currentMovie = movies.get(movieIndex);
+        User currentUser = IemdbRepository.getInstance().findUser(userId);
+        Movie currentMovie = IemdbRepository.getInstance().findMovie(movieId);
 
         Integer userAge = findUserAge(currentUser.BirthDate);
         Integer movieAgeLimit = currentMovie.AgeLimit;
+
         if (userAge < movieAgeLimit) return errorHandler.fail("AgeLimitError");
 
-        for (Movie movie : currentUser.watchList)
-            if (movie.Id.equals(currentMovie.Id))
-                return errorHandler.fail("MovieAlreadyExists");
+        IemdbRepository.getInstance().insertToWatchlist(userId, movieId);
 
-        users.get(userIndex).AddToWatchList(currentMovie);
         return errorHandler.success("movie added to watchlist successfully");
     }
 

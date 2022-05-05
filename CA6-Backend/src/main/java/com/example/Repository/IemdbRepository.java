@@ -6,6 +6,8 @@ import org.springframework.util.StringUtils;
 
 import java.sql.*;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.Date;
 
@@ -79,22 +81,32 @@ public class IemdbRepository {
         );
 
         createTableStatement.addBatch(
+                "CREATE TABLE IF NOT EXISTS Watchlist(userId INT, movieId INT, " +
+                        "PRIMARY KEY(userId, movieId), " +
+                        "FOREIGN KEY (userId) REFERENCES User(id)," +
+                        "FOREIGN KEY (movieId) REFERENCES Movie(id));"
+        );
+
+        createTableStatement.addBatch(
                 "CREATE TABLE IF NOT EXISTS Comment(id INT, likes INT, dislikes INT, userEmail CHAR(22), " +
                         "text char(255), creationDate char(255), movieId INT, " +
                         "PRIMARY KEY(id)," +
                         "FOREIGN KEY (movieId) REFERENCES Movie(id));"
+//                        "FOREIGN KEY (userEmail) REFERENCES User(email));"
         );
         createTableStatement.addBatch(
-                "CREATE TABLE IF NOT EXISTS CommentVote(id INT, userEmail CHAR(22), " +
+                "CREATE TABLE IF NOT EXISTS CommentVote(userEmail CHAR(225), " +
                         "vote INT, commentId INT, " +
-                        "PRIMARY KEY(id), " +
-                        "FOREIGN KEY (commentId) REFERENCES Comment(id));"
+                        "PRIMARY KEY(userEmail, commentId), " +
+                        "FOREIGN KEY (commentId) REFERENCES Comment(id), " +
+                        "FOREIGN KEY (userEmail) REFERENCES User(email));"
         );
         createTableStatement.addBatch(
-                "CREATE TABLE IF NOT EXISTS Rate(id INT, userEmail CHAR(22), " +
+                "CREATE TABLE IF NOT EXISTS Rate(userEmail CHAR(22), " +
                         "score float, movieId INT, " +
-                        "PRIMARY KEY(id), " +
+                        "PRIMARY KEY(userEmail, movieId), " +
                         "FOREIGN KEY (movieId) REFERENCES Movie(id));"
+//                        "FOREIGN KEY (userEmail) REFERENCES User(email));"
         );
         createTableStatement.addBatch(
                 "CREATE TABLE IF NOT EXISTS User(id INT, email CHAR(22) UNIQUE, " +
@@ -128,30 +140,6 @@ public class IemdbRepository {
     }
 
 
-//    private void setGrades(Student student) throws IOException, InterruptedException {
-//        var client = HttpClient.newHttpClient();
-//        ObjectMapper objectMapper = new ObjectMapper();
-//        var gradesReq = HttpRequest.newBuilder(
-//                URI.create(API_GRADE + student.getStudentId())
-//        ).build();
-//        HttpResponse<String> gradesRes = client.send(gradesReq, HttpResponse.BodyHandlers.ofString());
-//        JsonNode gradesArr = objectMapper.readTree(gradesRes.body());
-//
-//        ArrayList<Grade> grades = new ArrayList<>();
-//        gradesArr.forEach(grade -> {
-//            Grade newGrade = new Grade(grade.get("code").asText(), "", grade.get("grade").asInt(), grade.get("term").asInt(), 0);
-//            grades.add(newGrade);
-//        });
-//        student.setGrades(grades);
-//    }
-//
-//    protected String getFindByIdStatement() {
-//        return String.format("SELECT* FROM %s S WHERE S.id = ?;", TABLE_NAME);
-//    }
-//
-//    protected void fillFindByIdValues(PreparedStatement st, String id) throws SQLException {
-//        st.setString(1, id);
-//    }
 
     protected String getInsertStatementMovie() {
         return "INSERT INTO Movie(id, name, ageLimit, duration, imdbRate, summary, director, releaseDate, score, coverImage, image, writers)"
@@ -171,6 +159,12 @@ public class IemdbRepository {
                 + "ON DUPLICATE KEY UPDATE movieId=movieId, genre=genre";
     }
 
+    protected String getInsertStatementWatchlist(){
+        return "INSERT INTO Watchlist(userId, movieId)"
+                + " VALUES(?,?)"
+                + "ON DUPLICATE KEY UPDATE movieId=movieId, userId=userId";
+    }
+
     protected String getInsertStatementActor() {
         return "INSERT INTO Actor(id, name, birthDate, nationality, image)"
             + " VALUES(?,?,?,?,?)"
@@ -181,6 +175,18 @@ public class IemdbRepository {
         return "INSERT INTO Comment(id, likes, dislikes, userEmail, text, creationDate, movieId)"
             + " VALUES(?,?,?,?,?,?,?)"
             + "ON DUPLICATE KEY UPDATE id = id";
+    }
+
+    protected String getInsertStatementCommentVote() {
+        return "INSERT INTO CommentVote(userEmail, vote, commentId)"
+                + " VALUES(?,?,?)"
+                + "ON DUPLICATE KEY UPDATE userEmail = userEmail, commentId=commentId";
+    }
+
+    protected String getInsertStatementRate() {
+        return "INSERT INTO Rate(userEmail, score, movieId)"
+                + " VALUES(?,?,?)"
+                + "ON DUPLICATE KEY UPDATE score=score";
     }
 
 
@@ -216,6 +222,11 @@ public class IemdbRepository {
         ps.setString(2, genre);
     }
 
+    protected void fillInsertValuesWatchlist(PreparedStatement ps, String userId, String movieId) throws SQLException {
+        ps.setString(1, userId);
+        ps.setString(2, movieId);
+    }
+
     protected void fillInsertValuesActor(PreparedStatement ps, Actor data) throws SQLException {
         ps.setString(1, data.Id.toString());
         ps.setString(2, data.Name);
@@ -234,6 +245,18 @@ public class IemdbRepository {
         ps.setString(7, data.MovieId.toString());
     }
 
+    protected void fillInsertValuesRate(PreparedStatement ps, Rate data) throws SQLException {
+        ps.setString(1, data.UserEmail);
+        ps.setString(2, Float.toString(data.Score));
+        ps.setString(3, data.MovieId.toString());
+    }
+
+    protected void fillInsertValuesCommentVote(PreparedStatement ps, CommentVote data) throws SQLException {
+        ps.setString(1, data.UserEmail);
+        ps.setString(2, data.Vote.toString());
+        ps.setString(3, data.CommentId.toString());
+    }
+
     protected void fillInsertValuesUser(PreparedStatement ps, User data) throws SQLException {
         ps.setString(1, String.valueOf(data.Id));
         ps.setString(2, data.Email);
@@ -247,6 +270,23 @@ public class IemdbRepository {
         return String.format("SELECT * FROM %s;", TableName);
     }
 
+    protected String getFindAllStatementSearchByName(String name) {
+        return "SELECT * FROM Movie m WHERE m.name LIKE '%" + name + "%' ;";
+    }
+
+    protected String getFindAllStatementSearchByDate(String startYear, String endYear) {
+        return "SELECT * FROM Movie m WHERE extract(year from m.releaseDate) > "+ startYear+ " and extract(year from m.releaseDate) < "+ endYear +";";
+    }
+
+    protected String getFindWatchlist(int userId) {
+        return String.format("SELECT m.* FROM Watchlist w, Movie m WHERE w.userId = %s AND w.movieId = m.id;", userId);
+    }
+
+    protected String getRemoveFromWatchlist(String userId, String movieId){
+        return String.format("DELETE FROM Watchlist w WHERE w.userId = %s AND w.movieId = %s;", userId, movieId);
+    }
+
+
     protected Actor convertResultSetToDomainModelActor(ResultSet rs) throws Exception {
         return new Actor (
             Integer.parseInt(rs.getString(1)),
@@ -257,6 +297,20 @@ public class IemdbRepository {
         );
     }
 
+    protected User convertResultSetToDomainModelUser(ResultSet rs) throws Exception {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        String birthDate = rs.getString(6);
+        LocalDate localDate = LocalDate.parse(birthDate, formatter);
+
+        return new User (
+                rs.getInt(1),
+                rs.getString(2),
+                rs.getString(3),
+                rs.getString(4),
+                rs.getString(5),
+                localDate
+        );
+    }
     protected ArrayList<Movie> convertResultSetToDomainModelList(ResultSet rs) throws Exception {
         ArrayList<Movie> movies = new ArrayList<>();
         while (rs.next()) {
@@ -284,6 +338,80 @@ public class IemdbRepository {
         }
     }
 
+    public ArrayList<Movie> searchMovieByName(String name) throws Exception {
+        Connection con = ConnectionPool.getConnection();
+        PreparedStatement mv = con.prepareStatement(getFindAllStatementSearchByName(name));
+        try {
+            ResultSet resultSet = mv.executeQuery();
+            if (resultSet == null) {
+                return new ArrayList<>();
+            }
+            return convertResultSetToDomainModelList(resultSet);
+        } catch (Exception e) {
+            System.out.println("error in search by name query.");
+            e.printStackTrace();
+            throw e;
+        } finally {
+            DbUtils.close(mv);
+            DbUtils.close(con);
+        }
+    }
+
+    public ArrayList<Movie> searchMovieByDate(String startYear, String endYear) throws Exception {
+        Connection con = ConnectionPool.getConnection();
+        PreparedStatement mv = con.prepareStatement(getFindAllStatementSearchByDate(startYear, endYear));
+        try {
+            ResultSet resultSet = mv.executeQuery();
+            if (resultSet == null) {
+                return new ArrayList<>();
+            }
+            return convertResultSetToDomainModelList(resultSet);
+        } catch (Exception e) {
+            System.out.println("error in search by name query.");
+            e.printStackTrace();
+            throw e;
+        } finally {
+            DbUtils.close(mv);
+            DbUtils.close(con);
+        }
+    }
+
+    public ArrayList<Movie> getWatchlist(int userId) throws Exception {
+        Connection con = ConnectionPool.getConnection();
+        PreparedStatement mv = con.prepareStatement(getFindWatchlist(userId));
+        try {
+            ResultSet resultSet = mv.executeQuery();
+            if (resultSet == null) {
+                return new ArrayList<>();
+            }
+            return convertResultSetToDomainModelList(resultSet);
+        } catch (Exception e) {
+            System.out.println("error in Watchlist.findAll query.");
+            e.printStackTrace();
+            throw e;
+        } finally {
+            DbUtils.close(mv);
+            DbUtils.close(con);
+        }
+    }
+
+    public void removeFromWatchlist(String userId, String movieId) throws Exception {
+        Connection con = ConnectionPool.getConnection();
+        PreparedStatement ps = con.prepareStatement(getRemoveFromWatchlist(userId, movieId));
+        try {
+            ps.execute();
+            ps.close();
+            con.close();
+        } catch (Exception e) {
+            ps.close();
+            con.close();
+            System.out.println("removeFromWatchlist: error in Repository. query.");
+            e.printStackTrace();
+            throw e;
+        }
+    }
+
+
     protected Movie convertResultSetToDomainModelMovie(ResultSet rs) throws Exception {
         Date date = new SimpleDateFormat("yyyy-MM-dd").parse(rs.getString(8));
         String string_writers = rs.getString(12);
@@ -306,277 +434,6 @@ public class IemdbRepository {
         );
     }
 
-//    protected ArrayList<Student> convertResultSetToDomainModelList(ResultSet rs) throws Exception {
-//        ArrayList<Student> students = new ArrayList<>();
-//        while (rs.next()) {
-//            students.add(this.convertResultSetToDomainModel(rs));
-//        }
-//        return students;
-//    }
-//
-//    public void insertGrades(Student student) throws Exception {
-//        Connection con = ConnectionPool.getConnection();
-//        con.setAutoCommit(false);
-//        PreparedStatement st = con.prepareStatement(
-//                "INSERT INTO Grade(sid, code, term, grade)"
-//                        + " VALUES(?,?,?,?)"
-//                        + " ON DUPLICATE KEY UPDATE sid = sid"
-//        );
-//        for (Grade grade : student.getGrades()) {
-//            st.setString(1, student.getStudentId());
-//            st.setString(2, grade.code);
-//            st.setInt(3, grade.term);
-//            st.setInt(4, grade.grade);
-//            st.addBatch();
-//        }
-//        try {
-//            if (student.getGrades().size() > 0) {
-//                st.executeBatch();
-//                con.commit();
-//            }
-//        } catch (Exception e) {
-//            con.rollback();
-//            System.out.println("error in Repository.insert query.");
-//            e.printStackTrace();
-//        } finally {
-//            DbUtils.close(st);
-//            DbUtils.close(con);
-//        }
-//    }
-//
-//    public ArrayList<Grade> getGrades(String sid) throws Exception {
-//        Connection con = ConnectionPool.getConnection();
-//        PreparedStatement st = con.prepareStatement("select G.code, G.term, G.grade FROM Grade G WHERE G.sid = ?");
-//        PreparedStatement st2 = con.prepareStatement("select C.name, C.units FROM Course C WHERE C.code = ?");
-//        st.setString(1, sid);
-//        try {
-//            ResultSet resultSet = st.executeQuery();
-//            if (resultSet == null) {
-//                return new ArrayList<>();
-//            }
-//            ArrayList<Grade> result = new ArrayList<>();
-//            while (resultSet.next()) {
-//                st2.setString(1, resultSet.getString(1));
-//                ResultSet c = st2.executeQuery();
-//                if (c.next()) {
-//                    result.add(new Grade(
-//                            resultSet.getString(1),
-//                            c.getString(1),
-//                            resultSet.getInt(3),
-//                            resultSet.getInt(2),
-//                            c.getInt(2)
-//                    ));
-//                }
-//            }
-//            return result;
-//        } catch (Exception e) {
-//            System.out.println("Exception in get getPrerequisites");
-//            throw e;
-//        } finally {
-//            DbUtils.close(st);
-//            DbUtils.close(st2);
-//            DbUtils.close(con);
-//        }
-//    }
-//
-//    private void runCourseQuery(String statement, String sid, String code, String classCode) throws Exception {
-//        Connection con = ConnectionPool.getConnection();
-//        PreparedStatement st = con.prepareStatement(statement);
-//        st.setString(1, sid);
-//        st.setString(2, code);
-//        st.setString(3, classCode);
-//
-//        try {
-//            st.execute();
-//        } catch (Exception e) {
-//            System.out.println("error in addCourse.insert query.");
-//            e.printStackTrace();
-//        } finally {
-//            DbUtils.close(st);
-//            DbUtils.close(con);
-//        }
-//    }
-//
-//    private ArrayList<String[]> getCourseListQuery(String statement, String sid) throws Exception {
-//        ArrayList<String[]> courses = new ArrayList<>();
-//        Connection con = ConnectionPool.getConnection();
-//        PreparedStatement st = con.prepareStatement(statement);
-//        st.setString(1, sid);
-//        try {
-//            ResultSet rs = st.executeQuery();
-//            while (rs.next())
-//                courses.add(new String[] {rs.getString(1), rs.getString(2)});
-//            return courses;
-//        } catch (Exception e) {
-//            System.out.println("error in addCourse.insert query.");
-//            e.printStackTrace();
-//            throw e;
-//        } finally {
-//            DbUtils.close(st);
-//            DbUtils.close(con);
-//        }
-//    }
-//
-//    private void clearList(String statement, String sid) throws Exception {
-//        Connection con = ConnectionPool.getConnection();
-//        PreparedStatement st = con.prepareStatement(statement);
-//        st.setString(1, sid);
-//
-//        try {
-//            st.execute();
-//        } catch (Exception e) {
-//            System.out.println("error in clear list.insert query.");
-//            e.printStackTrace();
-//        } finally {
-//            DbUtils.close(st);
-//            DbUtils.close(con);
-//        }
-//    }
-//
-//    public void addCourseToInProgCourses(String sid, String code, String classCode) throws Exception {
-//        runCourseQuery(IN_PROG_ST, sid, code, classCode);
-//    }
-//
-//    public void addCourseToInProgQueue(String sid, String code, String classCode) throws Exception {
-//        runCourseQuery(IN_PROG_QUEUE_ST, sid, code, classCode);
-//    }
-//
-//    public void addCourseToSubmittedCourses(String sid, String code, String classCode) throws Exception {
-//        runCourseQuery(SUBMIT_ST, sid, code, classCode);
-//    }
-//
-//    public void addCourseToQueue(String sid, String code, String classCode) throws Exception {
-//        runCourseQuery(WAIT_QUEUE_ST, sid, code, classCode);
-//    }
-//
-//    public void removeCourseFromInProg(String sid, String code, String classCode) throws Exception {
-//        runCourseQuery(DEL_IN_PROG, sid, code, classCode);
-//    }
-//
-//    public void removeCourseFromSubmit(String sid, String code, String classCode) throws Exception {
-//        runCourseQuery(DEL_SUBMIT, sid, code, classCode);
-//    }
-//
-//    public void removeCourseFromInProgQueue(String sid, String code, String classCode) throws Exception {
-//        runCourseQuery(DEL_IN_PROG_QUEUE, sid, code, classCode);
-//    }
-//
-//    public void removeCourseFromQueue(String sid, String code, String classCode) throws Exception {
-//        runCourseQuery(DEL_QUEUE, sid, code, classCode);
-//    }
-//
-//    public ArrayList<String[]> getInProgCourses(String sid) throws Exception {
-//        return getCourseListQuery(GET_IN_PROG, sid);
-//    }
-//
-//    public ArrayList<String[]> getSubmittedCourses(String sid) throws Exception {
-//        return getCourseListQuery(GET_SUBMIT, sid);
-//    }
-//
-//    public ArrayList<String[]> getInProgQueueCourses(String sid) throws Exception {
-//        return getCourseListQuery(GET_IN_PROG_QUEUE, sid);
-//    }
-//
-//    public ArrayList<String[]> getQueueCourses(String sid) throws Exception {
-//        return getCourseListQuery(GET_QUEUE, sid);
-//    }
-//
-//    public void clearInProgCourses(String sid) throws Exception {
-//        clearList(CLR_IN_PROG, sid);
-//    }
-//
-//    public void clearSubmittedCourses(String sid) throws Exception {
-//        clearList(CLR_SUBMIT, sid);
-//    }
-//
-//    public void clearInProgQueue(String sid) throws Exception {
-//        clearList(CLR_IN_PROG_QUEUE, sid);
-//    }
-//
-//    public void clearQueue(String sid) throws Exception {
-//        clearList(CLR_QUEUE, sid);
-//    }
-
-//    public ArrayList<String[]> getNewlyAddedCourses(String sid) throws Exception {
-//        return getCourseListQuery("SELECT I.code, I.classCode FROM InProgressCourses I WHERE I.sid = ? " +
-//                "AND NOT EXISTS (SELECT S.code, S.classCode " +
-//                "FROM SubmittedCourses S WHERE S.code = I.code AND S.classCode = I.classCode);", sid);
-//    }
-//
-//    public ArrayList<String[]> getRemovedCourses(String sid) throws Exception {
-//        return getCourseListQuery("SELECT I.code, I.classCode FROM SubmittedCourses I WHERE I.sid = ? " +
-//                "AND NOT EXISTS (SELECT S.code, S.classCode " +
-//                "FROM InProgressCourses S WHERE S.code = I.code AND S.classCode = I.classCode);", sid);
-//    }
-//
-//    public int getInProgUnitCount(String sid) throws Exception {
-//        Connection con = ConnectionPool.getConnection();
-//        PreparedStatement st = con.prepareStatement(
-//                "SELECT SUM(C.units) FROM InProgressCourses P, Course C " +
-//                        "WHERE P.sid = ? AND C.code = P.code AND C.classCode = P.classCode");
-//        st.setString(1, sid);
-//        try {
-//            ResultSet resultSet = st.executeQuery();
-//            if (resultSet.next()) {
-//                return resultSet.getInt(1);
-//            }
-//            return 0;
-//        } catch (Exception e) {
-//            System.out.println("error in unit count.find query.");
-//            e.printStackTrace();
-//            throw e;
-//        } finally {
-//            DbUtils.close(st);
-//            DbUtils.close(con);
-//        }
-//    }
-//
-//    public int getInProgWaitUnitCount(String sid) throws Exception {
-//        Connection con = ConnectionPool.getConnection();
-//        PreparedStatement st = con.prepareStatement(
-//                "SELECT SUM(C.units) FROM InProgressQueue P, Course C " +
-//                        "WHERE P.sid = ? AND C.code = P.code AND C.classCode = P.classCode");
-//        st.setString(1, sid);
-//        try {
-//            ResultSet resultSet = st.executeQuery();
-//            if (resultSet.next()) {
-//                return resultSet.getInt(1);
-//            }
-//            return 0;
-//        } catch (Exception e) {
-//            System.out.println("error in unit count.find query.");
-//            e.printStackTrace();
-//            throw e;
-//        } finally {
-//            DbUtils.close(st);
-//            DbUtils.close(con);
-//        }
-//    }
-//
-//    public ArrayList<String> getPassedCourses(String sid) throws Exception {
-//        Connection con = ConnectionPool.getConnection();
-//        PreparedStatement st = con.prepareStatement("SELECT G.code FROM Grade G WHERE G.sid = ? AND G.grade >= 10");
-//        st.setString(1, sid);
-//        try {
-//            ArrayList<String> codes = new ArrayList<>();
-//            ResultSet resultSet = st.executeQuery();
-//            if (resultSet == null) {
-//                return new ArrayList<>();
-//            }
-//            while (resultSet.next()) {
-//                codes.add(resultSet.getString(1));
-//            }
-//            return codes;
-//        } catch (Exception e) {
-//            System.out.println("error in unit count.find query.");
-//            e.printStackTrace();
-//            throw e;
-//        } finally {
-//            DbUtils.close(st);
-//            DbUtils.close(con);
-//        }
-//    }
-//
     public Actor findActor(String id) throws Exception {
         Connection con = ConnectionPool.getConnection();
         PreparedStatement actr = con.prepareStatement("SELECT * FROM Actor WHERE id = ?");
@@ -618,6 +475,25 @@ public class IemdbRepository {
         }
     }
 
+    public User findUser(String id) throws Exception {
+        Connection con = ConnectionPool.getConnection();
+        PreparedStatement ps = con.prepareStatement("SELECT * FROM User WHERE id = ?");
+        ps.setString(1, id);
+        try {
+            ResultSet resultSet = ps.executeQuery();
+            if (!resultSet.next()) {
+                return null;
+            }
+            return convertResultSetToDomainModelUser(resultSet);
+        } catch (Exception e) {
+            System.out.println("error in User.find query.");
+            e.printStackTrace();
+            throw e;
+        } finally {
+            DbUtils.close(ps);
+            DbUtils.close(con);
+        }
+    }
     public void insertMovie(Movie movie) throws SQLException {
         Connection con = ConnectionPool.getConnection();
         PreparedStatement ps = con.prepareStatement(getInsertStatementMovie());
@@ -670,6 +546,22 @@ public class IemdbRepository {
         con.close();
     }
 
+    public void insertToWatchlist(String userId, String movieId) throws SQLException {
+        Connection con = ConnectionPool.getConnection();
+        PreparedStatement ps = con.prepareStatement(getInsertStatementWatchlist());
+        fillInsertValuesWatchlist(ps, userId, movieId);
+        try {
+            ps.execute();
+            ps.close();
+            con.close();
+        } catch (Exception e) {
+            ps.close();
+            con.close();
+            System.out.println("Movie_Genre: error in Repository.insert query.");
+            e.printStackTrace();
+        }
+    }
+
     public void insertActor(Actor actor) throws SQLException {
         Connection con = ConnectionPool.getConnection();
         PreparedStatement ps = con.prepareStatement(getInsertStatementActor());
@@ -702,6 +594,56 @@ public class IemdbRepository {
         }
     }
 
+    public void insertCommentVote(CommentVote commentVote) throws SQLException {
+        Connection con = ConnectionPool.getConnection();
+        PreparedStatement ps = con.prepareStatement(getInsertStatementCommentVote());
+        fillInsertValuesCommentVote(ps, commentVote);
+        try {
+            ps.execute();
+            ps.close();
+            con.close();
+        } catch (Exception e) {
+            ps.close();
+            con.close();
+            System.out.println("CommentVote: error in Repository.insert query.");
+            e.printStackTrace();
+            throw e;
+        }
+    }
+
+    public void insertRate(Rate rate) throws SQLException {
+        Connection con = ConnectionPool.getConnection();
+        PreparedStatement ps = con.prepareStatement(getInsertStatementRate());
+        fillInsertValuesRate(ps, rate);
+        try {
+            ps.execute();
+            ps.close();
+            con.close();
+        } catch (Exception e) {
+            ps.close();
+            con.close();
+            System.out.println("Rate: error in Repository.insert query.");
+            e.printStackTrace();
+            throw e;
+        }
+    }
+
+    public void insertUser(User user) throws SQLException {
+        Connection con = ConnectionPool.getConnection();
+        PreparedStatement ps = con.prepareStatement(getInsertStatementUser());
+        fillInsertValuesUser(ps, user);
+        try {
+            ps.execute();
+            ps.close();
+            con.close();
+        } catch (Exception e) {
+            ps.close();
+            con.close();
+            System.out.println("User: error in Repository.insert query.");
+            e.printStackTrace();
+        }
+    }
+
     public int getDataSize(String table) throws Exception {
         Connection con = ConnectionPool.getConnection();
         PreparedStatement mv = con.prepareStatement("SELECT COUNT(*) FROM " + table);
@@ -721,19 +663,4 @@ public class IemdbRepository {
         }
     }
 
-    public void insertUser(User user) throws SQLException {
-        Connection con = ConnectionPool.getConnection();
-        PreparedStatement ps = con.prepareStatement(getInsertStatementUser());
-        fillInsertValuesUser(ps, user);
-        try {
-            ps.execute();
-            ps.close();
-            con.close();
-        } catch (Exception e) {
-            ps.close();
-            con.close();
-            System.out.println("User: error in Repository.insert query.");
-            e.printStackTrace();
-        }
-    }
 }

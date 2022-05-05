@@ -4,6 +4,7 @@ import com.example.Model.ErrorHandler;
 import com.example.Model.Movie;
 import com.example.Model.Rate;
 import com.example.Model.User;
+import com.example.Repository.IemdbRepository;
 import org.json.JSONObject;
 
 import java.util.List;
@@ -13,28 +14,23 @@ public class RateService {
     MovieService movieService = new MovieService();
     ErrorHandler errorHandler = new ErrorHandler();
 
-    public JSONObject AddRateToMovie(JSONObject jsonObject, List<User> users, List<Movie> movies){
-        Integer movieId = Integer.parseInt(jsonObject.get("movieId").toString());
-        Integer movieIndex = movieService.FindMovieIndex(movieId, movies);
+    public JSONObject AddRateToMovie(JSONObject jsonObject) throws Exception {
+        String movieId = jsonObject.getString("movieId");
+        Movie movie = IemdbRepository.getInstance().findMovie(movieId);
+        if(movie == null)
+            throw new Exception("movie not found");
+
         String userEmail = jsonObject.get("userEmail").toString();
 
-        if (!userService.UserExists(userEmail, users)) return errorHandler.fail("UserNotFound");
-
-        if (movieIndex == -1) return errorHandler.fail("MovieNotFound");
-
-
-        int score = Integer.parseInt(jsonObject.get("score").toString());
+        int score = jsonObject.getInt("score");
         if (score < 1 || score > 10) return errorHandler.fail("InvalidRateScore");
-
-        if (movies.get(movieIndex).checkForRateUpdates(userEmail, score))
-            return errorHandler.success("movie rated successfully");
 
         Rate newRate = new Rate(
                 userEmail,
-                movieId,
+                movie.Id,
                 score
         );
-        movies.get(movieIndex).AddRate(newRate);
+        IemdbRepository.getInstance().insertRate(newRate);
         return errorHandler.success("movie rated successfully");
     }
 }
