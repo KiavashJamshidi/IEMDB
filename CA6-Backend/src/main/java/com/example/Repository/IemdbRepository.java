@@ -14,35 +14,6 @@ import java.util.Date;
 public class IemdbRepository {
     private static final String TABLE_NAME = "Movie";
     private static IemdbRepository instance;
-
-    private static final String API_MOVIES = "http://138.197.181.131:5200/api/students";
-    private static final String API_ACTORS = "http://138.197.181.131:5200/api/grades/";
-
-    private static final String IN_PROG_ST = "INSERT INTO InProgressCourses(sid, code, classCode) "
-            + " VALUES(?,?,?)"
-            + " ON DUPLICATE KEY UPDATE sid = sid";
-    private static final String SUBMIT_ST = "INSERT INTO SubmittedCourses(sid, code, classCode) "
-            + " VALUES(?,?,?)"
-            + " ON DUPLICATE KEY UPDATE sid = sid";
-    private static final String IN_PROG_QUEUE_ST = "INSERT INTO InProgressQueue(sid, code, classCode) "
-            + " VALUES(?,?,?)"
-            + " ON DUPLICATE KEY UPDATE sid = sid";
-    private static final String WAIT_QUEUE_ST = "INSERT INTO WaitQueue(sid, code, classCode) "
-            + " VALUES(?,?,?)"
-            + " ON DUPLICATE KEY UPDATE sid = sid";
-    public static final String DEL_IN_PROG = "DELETE FROM InProgressCourses WHERE sid = ? AND code = ? AND classCode = ?";
-    public static final String DEL_SUBMIT = "DELETE FROM SubmittedCourses WHERE sid = ? AND code = ? AND classCode = ?";
-    public static final String DEL_IN_PROG_QUEUE = "DELETE FROM InProgressQueue WHERE sid = ? AND code = ? AND classCode = ?";
-    public static final String DEL_QUEUE = "DELETE FROM WaitQueue WHERE sid = ? AND code = ? AND classCode = ?";
-    public static final String GET_IN_PROG = "SELECT C.code, C.classCode FROM InProgressCourses C WHERE C.sid = ?;";
-    public static final String GET_SUBMIT = "SELECT C.code, C.classCode FROM SubmittedCourses C WHERE C.sid = ?;";
-    public static final String GET_IN_PROG_QUEUE = "SELECT C.code, C.classCode FROM InProgressQueue C WHERE C.sid = ?;";
-    public static final String GET_QUEUE  = "SELECT C.code, C.classCode FROM WaitQueue C WHERE C.sid = ?;";
-    public static final String CLR_IN_PROG = "DELETE FROM InProgressCourses WHERE sid = ?;";
-    public static final String CLR_SUBMIT = "DELETE FROM SubmittedCourses WHERE sid = ?;";
-    public static final String CLR_IN_PROG_QUEUE = "DELETE FROM InProgressQueue WHERE sid = ?;";
-    public static final String CLR_QUEUE = "DELETE FROM WaitQueue WHERE sid = ?;";
-
     public static IemdbRepository getInstance() throws Exception {
         if (instance == null) {
             instance = new IemdbRepository();
@@ -51,7 +22,6 @@ public class IemdbRepository {
     }
 
     private IemdbRepository() throws Exception {
-//        OfferingRepository.getInstance(); // to make sure course tables are created
         Connection con = ConnectionPool.getConnection();
         Statement createTableStatement = con.createStatement();
 
@@ -299,11 +269,8 @@ public class IemdbRepository {
     }
 
     protected String getCommentLikesOrDislikesStatement(String commentId, String type){
-//        return "SELECT COUNT(*) FROM commentvote WHERE vote = " + type +" AND commentId = "+commentId+";";
-        return "SELECT COUNT(*) FROM Movie ";
-
+        return "SELECT COUNT(*) FROM commentvote WHERE vote = " + type +" AND commentId = "+commentId+";";
     }
-
 
     protected String getFindWatchlist(int userId) {
         return String.format("SELECT m.* FROM Watchlist w, Movie m WHERE w.userId = %s AND w.movieId = m.id;", userId);
@@ -417,14 +384,10 @@ public class IemdbRepository {
 
     public int getCommentLikeOrDislikes(String CommentId, int type) throws Exception {
         Connection con = ConnectionPool.getConnection();
-        System.out.println(getCommentLikesOrDislikesStatement(CommentId, String.valueOf(type)));
         PreparedStatement mv = con.prepareStatement(getCommentLikesOrDislikesStatement(CommentId, String.valueOf(type)));
         try {
-//            System.out.println("kkkkkkkkkiiiiiiiiiiiiir");
             ResultSet resultSet = mv.executeQuery();
-//            System.out.println("kkkkkkkkkiiiiiiiiiiiiir222222222");
-//            System.out.println(resultSet.getString(1));
-            if (resultSet == null) {
+            if (!resultSet.next()) {
                 return 0;
             }
             return resultSet.getInt(1);
@@ -844,9 +807,9 @@ public class IemdbRepository {
 
     public int getDataSize(String table) throws Exception {
         Connection con = ConnectionPool.getConnection();
-        PreparedStatement mv = con.prepareStatement("SELECT COUNT(*) FROM " + table);
+        PreparedStatement ps = con.prepareStatement("SELECT COUNT(*) FROM " + table);
         try {
-            ResultSet resultSet = mv.executeQuery();
+            ResultSet resultSet = ps.executeQuery();
             if (!resultSet.next()) {
                 return 0;
             }
@@ -856,7 +819,7 @@ public class IemdbRepository {
             e.printStackTrace();
             throw e;
         } finally {
-            DbUtils.close(mv);
+            DbUtils.close(ps);
             DbUtils.close(con);
         }
     }
