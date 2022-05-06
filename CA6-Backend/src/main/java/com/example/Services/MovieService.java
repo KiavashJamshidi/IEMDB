@@ -120,7 +120,7 @@ public class MovieService {
     public void GenreSimilarity(List<Movie> watchList, Movie movie){
         float genreSimilarity = 0;
         for (Movie mv : watchList) {
-            List<String> temp = new ArrayList<String>(mv.Genres);
+            List<String> temp = new ArrayList<>(mv.Genres);
             temp.retainAll(movie.Genres);
             genreSimilarity += temp.size();
         }

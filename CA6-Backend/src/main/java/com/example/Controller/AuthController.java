@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
     @PostMapping("/login")
     public User login(@RequestBody JsonNode body) throws Exception {
+        System.out.println("Auth controller started: login");
+
         if (!body.has("email") || !body.has("password"))
             throw new Exception("Missing Parameter");
 
@@ -22,6 +24,8 @@ public class AuthController {
 
     @PostMapping("/logout")
     public void logout(@RequestBody JsonNode body) throws Exception {
+        System.out.println("Auth controller started: logout");
+
         if (IEMDB.getInstance().loginUser == null)
             throw new Exception("No user is logged in!");
         else
@@ -30,7 +34,7 @@ public class AuthController {
 
     @PostMapping("/user")
     public User getUser(@RequestBody JsonNode body) throws Exception {
-        System.out.println("AuthController started...getUser");
+        System.out.println("AuthController started: getUser");
         if (IEMDB.getInstance().loginUser == null)
             throw new Exception("No user is logged in!");
         else

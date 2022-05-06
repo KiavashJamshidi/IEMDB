@@ -6,6 +6,8 @@ import com.example.Model.Actor;
 import com.example.Model.Movie;
 import org.springframework.web.bind.annotation.*;
 import com.example.Repository.IemdbRepository;
+
+import java.util.ArrayList;
 import java.util.List;
 
 @RestController
@@ -25,13 +27,13 @@ public class ActorController {
 
     @PostMapping("/{actorId}/moviesActed")
     public List<Movie> getActorMovies(@PathVariable("actorId") String id) throws ActorNotFound, Exception {
-        Integer actorId = Integer.parseInt(id);
-        System.out.println("Actor controller started!");
+        int actorId = Integer.parseInt(id);
+        System.out.println("Actor controller started: getActorMovies");
         IemdbRepository repo = IemdbRepository.getInstance();
-        if (IEMDB.getInstance().actorService.FindActorIndex(actorId, IEMDB.getInstance().actors) == -1) {
-            System.out.println("Actor not Found");
+        try {
+            return IemdbRepository.getInstance().getActorMovies(actorId);
+        } catch (Exception e) {
             throw new ActorNotFound();
         }
-        return IEMDB.getInstance().actorService.moviesOfActor(Integer.parseInt(id),IEMDB.getInstance().movies);
     }
 }

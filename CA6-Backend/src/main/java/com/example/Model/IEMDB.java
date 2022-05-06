@@ -61,8 +61,9 @@ public class IEMDB {
         return instance;
     }
 
-    public void login(String email, String password){
-        loginUser = userService.FindUserByEmail(email, users);
+    public void login(String email, String password) throws Exception {
+        loginUser = IemdbRepository.getInstance().findUserByEmail(email);
+
         if(loginUser != null){
             if(!loginUser.Password.equals(password))
                 loginUser = null;
@@ -179,15 +180,18 @@ public class IEMDB {
         return !result.get("success").equals(false);
     }
 
-    public void setScoreRecommendations(){
+    public List<Movie> setScoreRecommendations(List<Movie> movies) throws Exception {
+        List <Movie> userWatchlist = IemdbRepository.getInstance().getWatchlist(loginUser.Id);
         for (Movie movie : movies) {
-            movieService.GenreSimilarity(loginUser.watchList, movie);
+            movieService.GenreSimilarity(userWatchlist, movie);
         }
+        return movies;
     }
 
-    public List<Movie> showTop3Recommendations() {
+    public List<Movie> showTop3Recommendations() throws Exception {
         List<Movie> recommends = new ArrayList<>();
-        setScoreRecommendations();
+        List<Movie> movies = IemdbRepository.getInstance().getAllMovies();
+        movies = setScoreRecommendations(movies);
         movies.sort((o1, o2) -> Float.compare(o2.ScoreRecommendation, o1.ScoreRecommendation));
         for (Movie movie : movies) {
             if (recommends.size() == 3)

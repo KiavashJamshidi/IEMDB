@@ -180,13 +180,13 @@ public class IemdbRepository {
     protected String getInsertStatementCommentVote() {
         return "INSERT INTO CommentVote(userEmail, vote, commentId)"
                 + " VALUES(?,?,?)"
-                + "ON DUPLICATE KEY UPDATE userEmail = userEmail, commentId=commentId";
+                + "ON DUPLICATE KEY UPDATE vote=VALUES(vote)";
     }
 
     protected String getInsertStatementRate() {
         return "INSERT INTO Rate(userEmail, score, movieId)"
                 + " VALUES(?,?,?)"
-                + "ON DUPLICATE KEY UPDATE score=score";
+                + "ON DUPLICATE KEY UPDATE score=VALUES(score)";
     }
 
 
@@ -270,13 +270,40 @@ public class IemdbRepository {
         return String.format("SELECT * FROM %s;", TableName);
     }
 
+    protected String sortStatementBy(String sortType) {
+        return "SELECT * FROM Movie ORDER BY "+sortType+" desc;";
+    }
+
     protected String getFindAllStatementSearchByName(String name) {
         return "SELECT * FROM Movie m WHERE m.name LIKE '%" + name + "%' ;";
+    }
+
+    protected String getFindAllStatementSearchByGenre(String genreName) {
+        return "SELECT m.* FROM Movie m, movie_genre mg WHERE m.id = mg.movieId AND mg.genre LIKE '%" + genreName + "%' ;";
     }
 
     protected String getFindAllStatementSearchByDate(String startYear, String endYear) {
         return "SELECT * FROM Movie m WHERE extract(year from m.releaseDate) > "+ startYear+ " and extract(year from m.releaseDate) < "+ endYear +";";
     }
+
+    protected String getFindAllStatementMoviesActedIn(String actorId) {
+        return "SELECT m.* FROM Movie m, actor_movie am WHERE m.id = am.movieId AND am.actorId = " + actorId + ";";
+    }
+
+    protected String getFindAllStatementMovieActors(String movieId) {
+        return "SELECT a.* FROM Actor a, actor_movie am WHERE a.id = am.actorId AND am.movieId = " + movieId + ";";
+    }
+
+    protected String getFindAllStatementMovieComments(String movieId) {
+        return "SELECT * FROM Comment c WHERE c.movieId = " + movieId + ";";
+    }
+
+    protected String getCommentLikesOrDislikesStatement(String commentId, String type){
+//        return "SELECT COUNT(*) FROM commentvote WHERE vote = " + type +" AND commentId = "+commentId+";";
+        return "SELECT COUNT(*) FROM Movie ";
+
+    }
+
 
     protected String getFindWatchlist(int userId) {
         return String.format("SELECT m.* FROM Watchlist w, Movie m WHERE w.userId = %s AND w.movieId = m.id;", userId);
@@ -295,6 +322,21 @@ public class IemdbRepository {
             rs.getString(4),
             rs.getString(5)
         );
+    }
+
+    protected Comment convertResultSetToDomainModelComment(ResultSet rs) throws Exception {
+        Comment newComment = new Comment (
+                Integer.parseInt(rs.getString(1)),
+                rs.getString(4),
+                Integer.parseInt(rs.getString(7)),
+                rs.getString(5)
+        );
+
+        newComment.Likes = Integer.parseInt(rs.getString(2));
+        newComment.Dislikes = Integer.parseInt(rs.getString(3));
+        newComment.CreationDate = rs.getString(6);
+
+        return newComment;
     }
 
     protected User convertResultSetToDomainModelUser(ResultSet rs) throws Exception {
@@ -319,6 +361,22 @@ public class IemdbRepository {
         return movies;
     }
 
+    protected ArrayList<Actor> convertResultSetToDomainModelListActor(ResultSet rs) throws Exception {
+        ArrayList<Actor> actors = new ArrayList<>();
+        while (rs.next()) {
+            actors.add(this.convertResultSetToDomainModelActor(rs));
+        }
+        return actors;
+    }
+
+    protected ArrayList<Comment> convertResultSetToDomainModelListComment(ResultSet rs) throws Exception {
+        ArrayList<Comment> comments = new ArrayList<>();
+        while (rs.next()) {
+            comments.add(this.convertResultSetToDomainModelComment(rs));
+        }
+        return comments;
+    }
+
     public ArrayList<Movie> getAllMovies() throws Exception {
         Connection con = ConnectionPool.getConnection();
         PreparedStatement mv = con.prepareStatement(getFindAllStatement("Movie"));
@@ -338,6 +396,105 @@ public class IemdbRepository {
         }
     }
 
+    public ArrayList<Movie> getAllMovies_SortedBy(String sortType) throws Exception {
+        Connection con = ConnectionPool.getConnection();
+        PreparedStatement mv = con.prepareStatement(sortStatementBy(sortType));
+        try {
+            ResultSet resultSet = mv.executeQuery();
+            if (resultSet == null) {
+                return new ArrayList<>();
+            }
+            return convertResultSetToDomainModelList(resultSet);
+        } catch (Exception e) {
+            System.out.println("error in Movies.findAll query.");
+            e.printStackTrace();
+            throw e;
+        } finally {
+            DbUtils.close(mv);
+            DbUtils.close(con);
+        }
+    }
+
+    public int getCommentLikeOrDislikes(String CommentId, int type) throws Exception {
+        Connection con = ConnectionPool.getConnection();
+        System.out.println(getCommentLikesOrDislikesStatement(CommentId, String.valueOf(type)));
+        PreparedStatement mv = con.prepareStatement(getCommentLikesOrDislikesStatement(CommentId, String.valueOf(type)));
+        try {
+//            System.out.println("kkkkkkkkkiiiiiiiiiiiiir");
+            ResultSet resultSet = mv.executeQuery();
+//            System.out.println("kkkkkkkkkiiiiiiiiiiiiir222222222");
+//            System.out.println(resultSet.getString(1));
+            if (resultSet == null) {
+                return 0;
+            }
+            return resultSet.getInt(1);
+        } catch (Exception e) {
+            System.out.println("error in getCommentLikeOrDislikes query.");
+            e.printStackTrace();
+            throw e;
+        } finally {
+            DbUtils.close(mv);
+            DbUtils.close(con);
+        }
+    }
+
+    public ArrayList<Movie> getActorMovies(int actorId) throws Exception {
+        Connection con = ConnectionPool.getConnection();
+        PreparedStatement mv = con.prepareStatement(getFindAllStatementMoviesActedIn(String.valueOf(actorId)));
+        try {
+            ResultSet resultSet = mv.executeQuery();
+            if (resultSet == null) {
+                return new ArrayList<>();
+            }
+            return convertResultSetToDomainModelList(resultSet);
+        } catch (Exception e) {
+            System.out.println("error in get actor movies query.");
+            e.printStackTrace();
+            throw e;
+        } finally {
+            DbUtils.close(mv);
+            DbUtils.close(con);
+        }
+    }
+
+    public ArrayList<Actor> getMovieActors(String movieId) throws Exception {
+        Connection con = ConnectionPool.getConnection();
+        PreparedStatement mv = con.prepareStatement(getFindAllStatementMovieActors(movieId));
+        try {
+            ResultSet resultSet = mv.executeQuery();
+            if (resultSet == null) {
+                return new ArrayList<>();
+            }
+            return convertResultSetToDomainModelListActor(resultSet);
+        } catch (Exception e) {
+            System.out.println("error in get actor movies query.");
+            e.printStackTrace();
+            throw e;
+        } finally {
+            DbUtils.close(mv);
+            DbUtils.close(con);
+        }
+    }
+
+    public ArrayList<Comment> getMovieComments(String movieId) throws Exception {
+        Connection con = ConnectionPool.getConnection();
+        PreparedStatement mv = con.prepareStatement(getFindAllStatementMovieComments(movieId));
+        try {
+            ResultSet resultSet = mv.executeQuery();
+            if (resultSet == null) {
+                return new ArrayList<>();
+            }
+            return convertResultSetToDomainModelListComment(resultSet);
+        } catch (Exception e) {
+            System.out.println("error in get actor movies query.");
+            e.printStackTrace();
+            throw e;
+        } finally {
+            DbUtils.close(mv);
+            DbUtils.close(con);
+        }
+    }
+
     public ArrayList<Movie> searchMovieByName(String name) throws Exception {
         Connection con = ConnectionPool.getConnection();
         PreparedStatement mv = con.prepareStatement(getFindAllStatementSearchByName(name));
@@ -349,6 +506,26 @@ public class IemdbRepository {
             return convertResultSetToDomainModelList(resultSet);
         } catch (Exception e) {
             System.out.println("error in search by name query.");
+            e.printStackTrace();
+            throw e;
+        } finally {
+            DbUtils.close(mv);
+            DbUtils.close(con);
+        }
+    }
+
+
+    public ArrayList<Movie> searchMovieByGenre(String genreName) throws Exception {
+        Connection con = ConnectionPool.getConnection();
+        PreparedStatement mv = con.prepareStatement(getFindAllStatementSearchByGenre(genreName));
+        try {
+            ResultSet resultSet = mv.executeQuery();
+            if (resultSet == null) {
+                return new ArrayList<>();
+            }
+            return convertResultSetToDomainModelList(resultSet);
+        } catch (Exception e) {
+            System.out.println("error in search by genre query.");
             e.printStackTrace();
             throw e;
         } finally {
@@ -494,6 +671,27 @@ public class IemdbRepository {
             DbUtils.close(con);
         }
     }
+
+    public User findUserByEmail(String userEmail) throws Exception {
+        Connection con = ConnectionPool.getConnection();
+        PreparedStatement ps = con.prepareStatement("SELECT * FROM User WHERE email = ?");
+        ps.setString(1, userEmail);
+        try {
+            ResultSet resultSet = ps.executeQuery();
+            if (!resultSet.next()) {
+                return null;
+            }
+            return convertResultSetToDomainModelUser(resultSet);
+        } catch (Exception e) {
+            System.out.println("error in User.find query.");
+            e.printStackTrace();
+            throw e;
+        } finally {
+            DbUtils.close(ps);
+            DbUtils.close(con);
+        }
+    }
+
     public void insertMovie(Movie movie) throws SQLException {
         Connection con = ConnectionPool.getConnection();
         PreparedStatement ps = con.prepareStatement(getInsertStatementMovie());

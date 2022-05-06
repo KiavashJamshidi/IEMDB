@@ -2,6 +2,7 @@ package com.example.Controller;
 
 import com.example.Exceptions.MovieNotFound;
 import com.example.Model.Actor;
+import com.example.Model.Comment;
 import com.example.Model.IEMDB;
 import com.example.Model.Movie;
 import com.example.Repository.IemdbRepository;
@@ -34,6 +35,18 @@ public class MoviesController {
             throw new MovieNotFound();
         }
         return movie;
+    }
+
+    @GetMapping("/movies/{movieId}/actors")
+    public List<Actor> getMovieActors(@PathVariable("movieId") String id) throws Exception {
+        System.out.println("Movie controller started: getMovieActors");
+        return IemdbRepository.getInstance().getMovieActors(id);
+    }
+
+    @GetMapping("/movies/{movieId}/comments")
+    public List<Comment> getMovieComments(@PathVariable("movieId") String id) throws Exception {
+        System.out.println("Movie controller started: getMovieComments");
+        return IemdbRepository.getInstance().getMovieComments(id);
     }
 
     @GetMapping("/movies")
@@ -84,7 +97,7 @@ public class MoviesController {
     }
 
     @GetMapping("/watchlist")
-    public List<Movie> getWatchlist() throws Exception {
+    public List<Movie> getWatchlist() {
         System.out.println("Movie controller started: getWatchlist");
         try {
             List<Movie> showWatchlist = IemdbRepository.getInstance().getWatchlist(IEMDB.getInstance().loginUser.Id);
@@ -119,9 +132,28 @@ public class MoviesController {
         }
     }
 
+    @GetMapping("/voteComment/{commentId}/likes")
+    public int getCommentLikes(@PathVariable("commentId") String commentId) throws Exception {
+        System.out.println("Movie controller started: getCommentLikes");
+        try{
+            return IemdbRepository.getInstance().getCommentLikeOrDislikes(commentId, 1);
+        }catch (Exception e){
+            return 0;
+        }
+    }
+    @GetMapping("/voteComment/{commentId}/dislikes")
+    public int getCommentDisLikes(@PathVariable("commentId") String commentId) throws Exception {
+        System.out.println("Movie controller started: getCommentDisLikes");
+        try{
+            return IemdbRepository.getInstance().getCommentLikeOrDislikes(commentId, -1);
+        }catch (Exception e){
+            return 0;
+        }
+    }
+
     @GetMapping("/movies/searchByDate/{search}")
     public List<Movie> searchByDate(@PathVariable("search") String search) throws Exception {
-        System.out.println("Movie controller started!");
+        System.out.println("Movie controller started: searchByDate");
         String[] splited = search.split("-");
         String start_year = splited[0];
         String end_year = splited[1];
@@ -136,34 +168,34 @@ public class MoviesController {
 
     @GetMapping("/movies/searchByGenre/{genre-name}")
     public List<Movie> searchByGenre(@PathVariable("genre-name") String genreName) throws Exception {
-        System.out.println("Movie controller started!");
-        return IEMDB.getInstance().movieService.SearchMoviesByGenre(genreName, IEMDB.getInstance().movies);
+        System.out.println("Movie controller started: searchByGenre");
+        return IemdbRepository.getInstance().searchMovieByGenre(genreName);
     }
 
     @PostMapping("/movies/sortByImdbRate")
-    public List<Movie> sortByImdbRate() throws IOException, ParseException {
-        System.out.println("Movie controller started!");
-        List<Movie> showMovies = IEMDB.getInstance().movies;
-        showMovies.sort((o1, o2) -> Float.compare(o2.IMDBRate, o1.IMDBRate));
+    public List<Movie> sortByImdbRate() throws Exception {
+        System.out.println("Movie controller started: sortByImdbRate");
+        List<Movie> showMovies = IemdbRepository.getInstance().getAllMovies_SortedBy("imdbRate");
         return showMovies;
     }
 
     @PostMapping("/movies/sortByReleaseDate")
-    public List<Movie> sortByReleaseDate() throws IOException, ParseException {
-        System.out.println("Movie controller started!");
-        List<Movie> showMovies = IEMDB.getInstance().movies;
-        Collections.sort(showMovies, Collections.reverseOrder());
+    public List<Movie> sortByReleaseDate() throws Exception {
+        System.out.println("Movie controller started: sortByReleaseDate");
+        List<Movie> showMovies = IemdbRepository.getInstance().getAllMovies_SortedBy("releaseDate");
         return showMovies;
     }
 
     @PostMapping("/recommendations")
-    public List<Movie> getRecommendedMovies() throws IOException, ParseException {
-        System.out.println("Movie controller started...recommendations");
-        List<Movie> recommendedMovies = IEMDB.getInstance().showTop3Recommendations();
-        System.out.println(recommendedMovies);
-        return recommendedMovies;
+    public List<Movie> getRecommendedMovies(){
+        System.out.println("Movie controller started: recommendations");
+        try {
+            return IEMDB.getInstance().showTop3Recommendations();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
     }
-
 
     private JsonNode createSuccessResponse(String msg) {
         ObjectMapper objectMapper = new ObjectMapper();
@@ -181,14 +213,4 @@ public class MoviesController {
         return resp;
     }
 
-    private JsonNode serializeMovies(List<Movie> movies) {
-        ObjectMapper objectMapper = new ObjectMapper();
-        ArrayNode moviesArr = objectMapper.createArrayNode();
-        for (Movie movie : movies)
-            moviesArr.add(objectMapper.valueToTree(movie));
-
-        ObjectNode result = objectMapper.createObjectNode();
-        result.set("movies", moviesArr);
-        return result;
-    }
 }
