@@ -272,6 +272,10 @@ public class IemdbRepository {
         return "SELECT COUNT(*) FROM commentvote WHERE vote = " + type +" AND commentId = "+commentId+";";
     }
 
+    protected String getMovieRatesStatement(String movieId){
+        return "SELECT score FROM Rate WHERE movieId = " + movieId +";";
+    }
+
     protected String getFindWatchlist(int userId) {
         return String.format("SELECT m.* FROM Watchlist w, Movie m WHERE w.userId = %s AND w.movieId = m.id;", userId);
     }
@@ -328,6 +332,13 @@ public class IemdbRepository {
         return movies;
     }
 
+    protected ArrayList<Float> convertResultSetToIntegerList(ResultSet rs) throws Exception {
+        ArrayList<Float> rateScores = new ArrayList<>();
+        while (rs.next()) {
+            rateScores.add(Float.parseFloat(rs.getString(1)));
+        }
+        return rateScores;
+    }
     protected ArrayList<Actor> convertResultSetToDomainModelListActor(ResultSet rs) throws Exception {
         ArrayList<Actor> actors = new ArrayList<>();
         while (rs.next()) {
@@ -393,6 +404,22 @@ public class IemdbRepository {
             return resultSet.getInt(1);
         } catch (Exception e) {
             System.out.println("error in getCommentLikeOrDislikes query.");
+            e.printStackTrace();
+            throw e;
+        } finally {
+            DbUtils.close(mv);
+            DbUtils.close(con);
+        }
+    }
+
+    public List<Float> getMovieRates(String movieId) throws Exception {
+        Connection con = ConnectionPool.getConnection();
+        PreparedStatement mv = con.prepareStatement(getMovieRatesStatement(movieId));
+        try {
+            ResultSet resultSet = mv.executeQuery();
+            return convertResultSetToIntegerList(resultSet);
+        } catch (Exception e) {
+            System.out.println("error in getMovieRates query.");
             e.printStackTrace();
             throw e;
         } finally {
@@ -804,6 +831,7 @@ public class IemdbRepository {
             e.printStackTrace();
         }
     }
+
 
     public int getDataSize(String table) throws Exception {
         Connection con = ConnectionPool.getConnection();

@@ -84,6 +84,16 @@ public class MoviesController {
         }
     }
 
+    @GetMapping("/movies/{movieId}/rates")
+    public List<Float> getMovieRates(@PathVariable("movieId") String id) throws Exception {
+        System.out.println("Movie controller started: getMovieRates");
+//        try {
+            return IemdbRepository.getInstance().getMovieRates(id);
+//        }catch (Exception e){
+//            return new ArrayList<>();
+//        }
+    }
+
     @PostMapping("/movies/{movieId}/addToWatchlist")
     public JsonNode addMovieToWatchlist(@PathVariable("movieId") String movieId) throws Exception {
         System.out.println("Movie controller started: addMovieToWatchlist");

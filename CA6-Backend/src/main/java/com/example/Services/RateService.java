@@ -31,6 +31,7 @@ public class RateService {
                 score
         );
         IemdbRepository.getInstance().insertRate(newRate);
+
         return errorHandler.success("movie rated successfully");
     }
 }
