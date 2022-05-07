@@ -84,14 +84,24 @@ public class MoviesController {
         }
     }
 
+    @PostMapping("/movies/{movieId}/genres")
+    public List<String> getMovieGenres(@PathVariable("movieId") String id){
+        System.out.println("Movie controller started: getMovieGenres");
+        try {
+            return IemdbRepository.getInstance().getMovieGenres(id);
+        }catch (Exception e){
+            return new ArrayList<>();
+        }
+    }
+
     @GetMapping("/movies/{movieId}/rates")
     public List<Float> getMovieRates(@PathVariable("movieId") String id) throws Exception {
         System.out.println("Movie controller started: getMovieRates");
-//        try {
+        try {
             return IemdbRepository.getInstance().getMovieRates(id);
-//        }catch (Exception e){
-//            return new ArrayList<>();
-//        }
+        }catch (Exception e){
+            return new ArrayList<>();
+        }
     }
 
     @PostMapping("/movies/{movieId}/addToWatchlist")

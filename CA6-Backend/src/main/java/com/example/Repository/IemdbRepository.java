@@ -276,6 +276,10 @@ public class IemdbRepository {
         return "SELECT score FROM Rate WHERE movieId = " + movieId +";";
     }
 
+    protected String getMovieGenresStatement(String movieId){
+        return "SELECT genre FROM movie_genre WHERE movieId = " + movieId +";";
+    }
+
     protected String getFindWatchlist(int userId) {
         return String.format("SELECT m.* FROM Watchlist w, Movie m WHERE w.userId = %s AND w.movieId = m.id;", userId);
     }
@@ -338,6 +342,14 @@ public class IemdbRepository {
             rateScores.add(Float.parseFloat(rs.getString(1)));
         }
         return rateScores;
+    }
+
+    protected ArrayList<String> convertResultSetToStringList(ResultSet rs) throws Exception {
+        ArrayList<String> genres = new ArrayList<>();
+        while (rs.next()) {
+            genres.add(rs.getString(1));
+        }
+        return genres;
     }
     protected ArrayList<Actor> convertResultSetToDomainModelListActor(ResultSet rs) throws Exception {
         ArrayList<Actor> actors = new ArrayList<>();
@@ -428,6 +440,21 @@ public class IemdbRepository {
         }
     }
 
+    public List<String> getMovieGenres(String movieId) throws Exception {
+        Connection con = ConnectionPool.getConnection();
+        PreparedStatement mv = con.prepareStatement(getMovieGenresStatement(movieId));
+        try {
+            ResultSet resultSet = mv.executeQuery();
+            return convertResultSetToStringList(resultSet);
+        } catch (Exception e) {
+            System.out.println("error in getMovieRates query.");
+            e.printStackTrace();
+            throw e;
+        } finally {
+            DbUtils.close(mv);
+            DbUtils.close(con);
+        }
+    }
     public ArrayList<Movie> getActorMovies(int actorId) throws Exception {
         Connection con = ConnectionPool.getConnection();
         PreparedStatement mv = con.prepareStatement(getFindAllStatementMoviesActedIn(String.valueOf(actorId)));
