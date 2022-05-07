@@ -4,6 +4,7 @@ import com.example.Model.Actor;
 import com.example.Model.ErrorHandler;
 import com.example.Model.Functions;
 import com.example.Model.Movie;
+import com.example.Repository.IemdbRepository;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -117,13 +118,18 @@ public class MovieService {
         return null;
     }
 
-    public void GenreSimilarity(List<Movie> watchList, Movie movie){
+    public float GenreSimilarity(List<Movie> watchList, Movie movie){
         float genreSimilarity = 0;
         for (Movie mv : watchList) {
-            List<String> temp = new ArrayList<>(mv.Genres);
-            temp.retainAll(movie.Genres);
-            genreSimilarity += temp.size();
+            try {
+                List<String> temp = IemdbRepository.getInstance().getMovieGenres(String.valueOf(mv.Id));
+                temp.retainAll(IemdbRepository.getInstance().getMovieGenres(String.valueOf(movie.Id)));
+                genreSimilarity += temp.size();
+            } catch (Exception e) {
+               return 0;
+            }
         }
         movie.ScoreRecommendation = 3 * genreSimilarity + movie.IMDBRate + ((movie.Score == -1) ? 0 : movie.Score);
+        return movie.ScoreRecommendation;
     }
 }

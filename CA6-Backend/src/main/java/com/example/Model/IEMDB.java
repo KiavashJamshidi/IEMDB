@@ -173,7 +173,7 @@ public class IEMDB {
     public List<Movie> setScoreRecommendations(List<Movie> movies) throws Exception {
         List <Movie> userWatchlist = IemdbRepository.getInstance().getWatchlist(loginUser.Id);
         for (Movie movie : movies) {
-            movieService.GenreSimilarity(userWatchlist, movie);
+            movie.ScoreRecommendation = movieService.GenreSimilarity(userWatchlist, movie);
         }
         return movies;
     }
