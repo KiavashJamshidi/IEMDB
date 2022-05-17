@@ -2,6 +2,7 @@ package com.example.Repository;
 
 import com.example.Model.*;
 import org.apache.commons.dbutils.DbUtils;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.util.StringUtils;
 
 import java.sql.*;
@@ -228,9 +229,12 @@ public class IemdbRepository {
     }
 
     protected void fillInsertValuesUser(PreparedStatement ps, User data) throws SQLException {
+        BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
+        String pw = encoder.encode(data.Password);
+
         ps.setString(1, String.valueOf(data.Id));
         ps.setString(2, data.Email);
-        ps.setString(3, data.Password);
+        ps.setString(3, pw);
         ps.setString(4, data.Nickname);
         ps.setString(5, data.Name);
         ps.setString(6, data.BirthDate.toString());

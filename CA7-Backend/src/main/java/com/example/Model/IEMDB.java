@@ -5,6 +5,7 @@ import com.example.Services.*;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.io.IOException;
 import java.net.URI;
@@ -53,9 +54,10 @@ public class IEMDB {
 
     public void login(String email, String password) throws Exception {
         loginUser = IemdbRepository.getInstance().findUserByEmail(email);
+        BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
 
         if(loginUser != null){
-            if(!loginUser.Password.equals(password))
+            if(!encoder.matches(password, loginUser.Password))
                 loginUser = null;
         }
     }
