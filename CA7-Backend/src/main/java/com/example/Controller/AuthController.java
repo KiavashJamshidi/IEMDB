@@ -10,6 +10,10 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
+import java.net.URI;
+import java.net.URL;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -21,6 +25,33 @@ import io.jsonwebtoken.Jwts;
 @RequestMapping("/api")
 public class AuthController {
     public static final String KEY = "iemdb1401iemdb1401iemdb1401iemdb1401iemdb1401iemdb1401";
+
+    @PostMapping("/oauth")
+    public ObjectNode oauth(@RequestBody JsonNode body) throws Exception {
+        System.out.println("Auth controller started: OAUTH");
+
+        if (!body.has("code"))
+            throw new Exception("Missing Parameter");
+
+        String code = body.get("code").asText();
+        String client_id = "4a4cc2f558b4c85a843b&scope";
+        String client_secret = "26768f20fce54ee712182b5ca3adcd4cb201aa41";
+        System.out.println(code);
+        String accessTokenURL = String.format(
+                "https://github.com/login/oauth/access_token?client_id=%s&client_secret=%s&code=%s",
+                client_id, client_secret, code
+        );
+
+        HttpClient client = HttpClient.newHttpClient();
+        URI accessTokenUri = URI.create(accessTokenURL);
+        HttpRequest.Builder accessTokenBuilder = HttpRequest.newBuilder().uri(accessTokenUri);
+        HttpRequest accessTokenRequest =
+                accessTokenBuilder
+                        .POST(HttpRequest.BodyPublishers.noBody())
+                        .header("Accept", "application/json")
+                        .build();
+            return null;
+    }
 
     @PostMapping("/login")
     public ObjectNode login(@RequestBody JsonNode body) throws Exception {
