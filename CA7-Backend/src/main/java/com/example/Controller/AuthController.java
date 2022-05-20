@@ -6,6 +6,8 @@ import com.example.Repository.IemdbRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.tomcat.util.json.JSONParser;
+import org.json.JSONObject;
 import org.springframework.web.bind.annotation.*;
 
 import javax.crypto.SecretKey;
@@ -14,11 +16,14 @@ import java.net.URI;
 import java.net.URL;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
+
 import io.jsonwebtoken.Jwts;
 
 @RestController
@@ -36,7 +41,6 @@ public class AuthController {
         String code = body.get("code").asText();
         String client_id = "4a4cc2f558b4c85a843b&scope";
         String client_secret = "26768f20fce54ee712182b5ca3adcd4cb201aa41";
-        System.out.println(code);
         String accessTokenURL = String.format(
                 "https://github.com/login/oauth/access_token?client_id=%s&client_secret=%s&code=%s",
                 client_id, client_secret, code
@@ -50,7 +54,62 @@ public class AuthController {
                         .POST(HttpRequest.BodyPublishers.noBody())
                         .header("Accept", "application/json")
                         .build();
-            return null;
+
+        HttpResponse<String> accessTokenResult = client.send(accessTokenRequest, HttpResponse.BodyHandlers.ofString());
+        ObjectMapper mapper = new ObjectMapper();
+        HashMap<String, Object> resultBody = mapper.readValue(accessTokenResult.body(), HashMap.class);
+        String accessToken = (String) resultBody.get("access_token");
+
+//        get user information with access token
+        URI userDataUri = URI.create("https://api.github.com/user");
+        HttpRequest.Builder userDataBuilder = HttpRequest.newBuilder().uri(userDataUri);
+        HttpRequest req =
+                userDataBuilder.GET().
+                        header("Authorization", String.format("token %s", accessToken))
+                        .build();
+        HttpResponse<String> userDataResult = client.send(req, HttpResponse.BodyHandlers.ofString());
+        JSONObject json = new JSONObject(userDataResult.body());
+        String nickName = json.getString("login");
+        String email = json.getString("email");
+        String name = json.getString("name");
+        String birthDateString = json.getString("created_at");
+
+        String[] temp = birthDateString.split("-");
+        temp[0] = String.valueOf(Integer.parseInt(temp[0]) - 18);
+        birthDateString = temp[0] + "-" + temp[1] + "-" + temp[2].substring(0, 2);
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        LocalDate localDate = LocalDate.parse(birthDateString, formatter);
+
+        int userId;
+        if(IemdbRepository.getInstance().findUserByEmail(email) != null)
+            userId = IemdbRepository.getInstance().findUserByEmail(email).Id;
+        else
+            userId = IemdbRepository.getInstance().getDataSize("User") + 1;
+
+        User user = new User(
+                userId,
+                email,
+                null,
+                nickName,
+                name,
+                localDate
+        );
+
+        try{
+            IemdbRepository.getInstance().insertUser(user);
+            IEMDB.getInstance().loginUser = user;
+            String jwt = createToken(email);
+            ObjectMapper objectMapper = new ObjectMapper();
+            ObjectNode resp = objectMapper.createObjectNode();
+            resp.put("token", jwt);
+            resp.put("userEmail", email);
+            return resp;
+
+        }catch (Exception e){
+            System.out.println("tu catch miram");
+        }
+
+        return null;
     }
 
     @PostMapping("/login")

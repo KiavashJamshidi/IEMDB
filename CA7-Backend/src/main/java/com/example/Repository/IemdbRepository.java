@@ -97,7 +97,7 @@ public class IemdbRepository {
         for (Actor actor : actors)
             insertActor(actor);
 
-        for (Movie movie : movies) { //check ali for insert grade
+        for (Movie movie : movies) {
             insertMovie(movie);
             insertMovieActors(movie);
             insertMovieGenres(movie);
@@ -230,8 +230,11 @@ public class IemdbRepository {
 
     protected void fillInsertValuesUser(PreparedStatement ps, User data) throws SQLException {
         BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
-        String pw = encoder.encode(data.Password);
-
+        String pw;
+        if(data.Password != null)
+            pw = encoder.encode(data.Password);
+        else
+            pw = null;
         ps.setString(1, String.valueOf(data.Id));
         ps.setString(2, data.Email);
         ps.setString(3, pw);
@@ -260,36 +263,36 @@ public class IemdbRepository {
         return "SELECT * FROM Movie m WHERE extract(year from m.releaseDate) > "+ startYear+ " and extract(year from m.releaseDate) < "+ endYear +";";
     }
 
-    protected String getFindAllStatementMoviesActedIn(String actorId) {
-        return "SELECT m.* FROM Movie m, actor_movie am WHERE m.id = am.movieId AND am.actorId = " + actorId + ";";
+    protected String getFindAllStatementMoviesActedIn() {
+        return "SELECT m.* FROM Movie m, actor_movie am WHERE m.id = am.movieId AND am.actorId = ? ;";
     }
 
-    protected String getFindAllStatementMovieActors(String movieId) {
-        return "SELECT a.* FROM Actor a, actor_movie am WHERE a.id = am.actorId AND am.movieId = " + movieId + ";";
+    protected String getFindAllStatementMovieActors() {
+        return "SELECT a.* FROM Actor a, actor_movie am WHERE a.id = am.actorId AND am.movieId = ? ;";
     }
 
-    protected String getFindAllStatementMovieComments(String movieId) {
-        return "SELECT * FROM Comment c WHERE c.movieId = " + movieId + ";";
+    protected String getFindAllStatementMovieComments() {
+        return "SELECT * FROM Comment c WHERE c.movieId = ? ;";
     }
 
-    protected String getCommentLikesOrDislikesStatement(String commentId, String type){
-        return "SELECT COUNT(*) FROM commentvote WHERE vote = " + type +" AND commentId = "+commentId+";";
+    protected String getCommentLikesOrDislikesStatement(){
+        return "SELECT COUNT(*) FROM commentvote WHERE vote = ? AND commentId = ? ;";
     }
 
-    protected String getMovieRatesStatement(String movieId){
-        return "SELECT score FROM Rate WHERE movieId = " + movieId +";";
+    protected String getMovieRatesStatement(){
+        return "SELECT score FROM Rate WHERE movieId = ? ;";
     }
 
-    protected String getMovieGenresStatement(String movieId){
-        return "SELECT genre FROM movie_genre WHERE movieId = " + movieId +";";
+    protected String getMovieGenresStatement(){
+        return "SELECT genre FROM movie_genre WHERE movieId = ? ;";
     }
 
-    protected String getFindWatchlist(int userId) {
-        return String.format("SELECT m.* FROM Watchlist w, Movie m WHERE w.userId = %s AND w.movieId = m.id;", userId);
+    protected String getFindWatchlist() {
+        return "SELECT m.* FROM Watchlist w, Movie m WHERE w.userId = ? AND w.movieId = m.id;";
     }
 
-    protected String getRemoveFromWatchlist(String userId, String movieId){
-        return String.format("DELETE FROM Watchlist w WHERE w.userId = %s AND w.movieId = %s;", userId, movieId);
+    protected String getRemoveFromWatchlist(){
+        return "DELETE FROM Watchlist w WHERE w.userId = ? AND w.movieId = ?;";
     }
 
 
@@ -374,6 +377,7 @@ public class IemdbRepository {
     public ArrayList<Movie> getAllMovies() throws Exception {
         Connection con = ConnectionPool.getConnection();
         PreparedStatement mv = con.prepareStatement(getFindAllStatement("Movie"));
+
         try {
             ResultSet resultSet = mv.executeQuery();
             if (resultSet == null) {
@@ -393,6 +397,7 @@ public class IemdbRepository {
     public ArrayList<Movie> getAllMovies_SortedBy(String sortType) throws Exception {
         Connection con = ConnectionPool.getConnection();
         PreparedStatement mv = con.prepareStatement(sortStatementBy(sortType));
+
         try {
             ResultSet resultSet = mv.executeQuery();
             if (resultSet == null) {
@@ -411,7 +416,9 @@ public class IemdbRepository {
 
     public int getCommentLikeOrDislikes(String CommentId, int type) throws Exception {
         Connection con = ConnectionPool.getConnection();
-        PreparedStatement mv = con.prepareStatement(getCommentLikesOrDislikesStatement(CommentId, String.valueOf(type)));
+        PreparedStatement mv = con.prepareStatement(getCommentLikesOrDislikesStatement());
+        mv.setString(1, String.valueOf(type));
+        mv.setString(2, CommentId);
         try {
             ResultSet resultSet = mv.executeQuery();
             if (!resultSet.next()) {
@@ -430,7 +437,8 @@ public class IemdbRepository {
 
     public List<Float> getMovieRates(String movieId) throws Exception {
         Connection con = ConnectionPool.getConnection();
-        PreparedStatement mv = con.prepareStatement(getMovieRatesStatement(movieId));
+        PreparedStatement mv = con.prepareStatement(getMovieRatesStatement());
+        mv.setString(1, movieId);
         try {
             ResultSet resultSet = mv.executeQuery();
             return convertResultSetToIntegerList(resultSet);
@@ -446,22 +454,25 @@ public class IemdbRepository {
 
     public List<String> getMovieGenres(String movieId) throws Exception {
         Connection con = ConnectionPool.getConnection();
-        PreparedStatement mv = con.prepareStatement(getMovieGenresStatement(movieId));
+        PreparedStatement ps = con.prepareStatement(getMovieGenresStatement());
+        ps.setString(1, movieId);
+
         try {
-            ResultSet resultSet = mv.executeQuery();
+            ResultSet resultSet = ps.executeQuery();
             return convertResultSetToStringList(resultSet);
         } catch (Exception e) {
             System.out.println("error in getMovieRates query.");
             e.printStackTrace();
             throw e;
         } finally {
-            DbUtils.close(mv);
+            DbUtils.close(ps);
             DbUtils.close(con);
         }
     }
     public ArrayList<Movie> getActorMovies(int actorId) throws Exception {
         Connection con = ConnectionPool.getConnection();
-        PreparedStatement mv = con.prepareStatement(getFindAllStatementMoviesActedIn(String.valueOf(actorId)));
+        PreparedStatement mv = con.prepareStatement(getFindAllStatementMoviesActedIn());
+        mv.setString(1, String.valueOf(actorId));
         try {
             ResultSet resultSet = mv.executeQuery();
             if (resultSet == null) {
@@ -480,7 +491,8 @@ public class IemdbRepository {
 
     public ArrayList<Actor> getMovieActors(String movieId) throws Exception {
         Connection con = ConnectionPool.getConnection();
-        PreparedStatement mv = con.prepareStatement(getFindAllStatementMovieActors(movieId));
+        PreparedStatement mv = con.prepareStatement(getFindAllStatementMovieActors());
+        mv.setString(1, movieId);
         try {
             ResultSet resultSet = mv.executeQuery();
             if (resultSet == null) {
@@ -499,7 +511,8 @@ public class IemdbRepository {
 
     public ArrayList<Comment> getMovieComments(String movieId) throws Exception {
         Connection con = ConnectionPool.getConnection();
-        PreparedStatement mv = con.prepareStatement(getFindAllStatementMovieComments(movieId));
+        PreparedStatement mv = con.prepareStatement(getFindAllStatementMovieComments());
+        mv.setString(1, movieId);
         try {
             ResultSet resultSet = mv.executeQuery();
             if (resultSet == null) {
@@ -576,7 +589,8 @@ public class IemdbRepository {
 
     public ArrayList<Movie> getWatchlist(int userId) throws Exception {
         Connection con = ConnectionPool.getConnection();
-        PreparedStatement mv = con.prepareStatement(getFindWatchlist(userId));
+        PreparedStatement mv = con.prepareStatement(getFindWatchlist());
+        mv.setInt(1, userId);
         try {
             ResultSet resultSet = mv.executeQuery();
             if (resultSet == null) {
@@ -595,7 +609,10 @@ public class IemdbRepository {
 
     public void removeFromWatchlist(String userId, String movieId) throws Exception {
         Connection con = ConnectionPool.getConnection();
-        PreparedStatement ps = con.prepareStatement(getRemoveFromWatchlist(userId, movieId));
+        PreparedStatement ps = con.prepareStatement(getRemoveFromWatchlist());
+        ps.setString(1, userId);
+        ps.setString(2, movieId);
+
         try {
             ps.execute();
             ps.close();
