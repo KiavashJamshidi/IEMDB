@@ -172,7 +172,7 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public void logout(@RequestBody JsonNode body) throws Exception {
+    public void logout() throws Exception {
         System.out.println("Auth controller started: logout");
 
         if (IEMDB.getInstance().loginUser == null)
