@@ -70,7 +70,7 @@ public class UserService {
         return period.getYears();
     }
 
-    public JSONObject AddToWatchList(JSONObject jsonObject, List<User> users, List<Movie> movies) throws Exception {
+    public JSONObject AddToWatchList(JSONObject jsonObject) throws Exception {
         String userId = jsonObject.getString("userId");
         String movieId = jsonObject.getString("movieId");
 
@@ -80,10 +80,8 @@ public class UserService {
         Integer userAge = findUserAge(currentUser.BirthDate);
         Integer movieAgeLimit = currentMovie.AgeLimit;
 
-        if (userAge < movieAgeLimit) return errorHandler.fail("AgeLimitError");
-
+        if (userAge < movieAgeLimit) throw new Exception("Age limit error");
         IemdbRepository.getInstance().insertToWatchlist(userId, movieId);
-
         return errorHandler.success("movie added to watchlist successfully");
     }
 

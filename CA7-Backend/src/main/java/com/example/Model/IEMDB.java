@@ -106,17 +106,18 @@ public class IEMDB {
 
 
     public int AddToWatchlistGet(String userId, String movieId) throws Exception {
-        if(!isInteger(userId) || !isInteger(movieId))
-            return -1;
+//        if(!isInteger(userId) || !isInteger(movieId))
+//            return -1;
 
         User user;
         user = IemdbRepository.getInstance().findUser(userId);
-
+        if(user == null)
+            throw new Exception("could not find user");
         JSONObject newJSONObject = new JSONObject();
         newJSONObject.put("userId", String.valueOf(user.Id));
         newJSONObject.put("movieId", movieId);
 
-        JSONObject result = userService.AddToWatchList(newJSONObject, users, movies);
+        JSONObject result = userService.AddToWatchList(newJSONObject);
 
         if(result.get("data").equals("AgeLimitError"))
             return -2;

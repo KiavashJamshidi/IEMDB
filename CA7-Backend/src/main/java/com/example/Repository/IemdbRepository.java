@@ -795,6 +795,7 @@ public class IemdbRepository {
             con.close();
             System.out.println("Movie_Genre: error in Repository.insert query.");
             e.printStackTrace();
+            throw e;
         }
     }
 
