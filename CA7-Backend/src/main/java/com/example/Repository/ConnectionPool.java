@@ -8,7 +8,7 @@ import java.sql.Statement;
 
 public class ConnectionPool {
     private static final BasicDataSource ds = new BasicDataSource();
-    private final static String dbURL = "jdbc:mysql://127.0.0.1:3306/iemdb";
+    private final static String dbURL = "jdbc:mysql://mysql:3306/iemdb";
     private final static String dbUserName = "root";
     private final static String dbPassword = "123321"; //change password
 
@@ -16,6 +16,7 @@ public class ConnectionPool {
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
         } catch (ClassNotFoundException e) {
+            System.out.println("heeeeereeeeeeeeee");
             System.out.println(e.getMessage());
         }
         ds.setUsername(dbUserName);
